@@ -694,7 +694,7 @@ void VulkanInstance::CreateUniformBuffer(int threadNum)
 
     View = glm::lookAt(glm::vec3(5, 3, 10),
         glm::vec3(0, 0, 0),
-        glm::vec3(0, 1, 0));
+        glm::vec3(0, -1, 0));
 
     //Model = glm::mat4(1.0f);
     m_modelMatrices[threadNum] = glm::mat4(1.0f);
@@ -704,8 +704,8 @@ void VulkanInstance::CreateUniformBuffer(int threadNum)
     // TODO: Why are the Y and Z inverted?
     Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, -1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.5f, 0.5f,
-        0.0f, 0.0f, 0.5f, 1.0f);
+        0.0f, 0.0f, -0.5f, 0.5f,
+        0.0f, 0.0f, -0.5f, 1.0f);
 
     MVP = Clip * Projection * View * m_modelMatrices[threadNum];
 
@@ -781,7 +781,7 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 
     View = glm::lookAt(glm::vec3(5, 3, 10),
         glm::vec3(0, 0, 0),
-        glm::vec3(0, 1, 0));
+        glm::vec3(0, -1, 0));
 
     //Model = glm::mat4(1.0f);	
     m_modelMatrices[threadNum] = glm::rotate(m_modelMatrices[threadNum], 1.0f * dt, glm::vec3(0, 1, 0));
@@ -794,8 +794,8 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 	// results are different, but is skewed
     Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, -1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.5f, 0.0f, 
-        0.0f, 0.0f, 0.5f, 1.0f);
+        0.0f, 0.0f, -0.5f, 0.0f, 
+        0.0f, 0.0f, -0.5f, 1.0f);
 
     MVP = Clip * Projection * View * m_modelMatrices[threadNum];
 

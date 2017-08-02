@@ -85,7 +85,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.0.24.0\Samples\API-Samples\utils;C:\VulkanSDK\1.0.24.0\glslang;C:\VulkanSDK\1.0.24.0\Include\vulkan;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.0.54.0\Samples\API-Samples\utils;C:\VulkanSDK\1.0.54.0\glslang;C:\VulkanSDK\1.0.54.0\Include\vulkan;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>
       </AdditionalOptions>
       <AdditionalUsingDirectories>
@@ -94,7 +94,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>C:\VulkanSDK\1.0.24.0\Bin32\vulkan-1.lib;C:\VulkanSDK\1.0.24.0\glslang\SPIRV\Debug\SPIRV.lib;C:\VulkanSDK\1.0.24.0\glslang\glslang\Debug\glslang.lib;C:\VulkanSDK\1.0.24.0\glslang\glslang\OSDependent\Windows\Debug\OSDependent.lib;C:\VulkanSDK\1.0.24.0\glslang\OGLCompilersDLL\Debug\OGLCompiler.lib;C:\VulkanSDK\1.0.24.0\glslang\hlsl\Debug\HLSL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>C:\VulkanSDK\1.0.54.0\Lib32\vulkan-1.lib;C:\VulkanSDK\1.0.54.0\glslang\SPIRV\Debug\SPIRVd.lib;C:\VulkanSDK\1.0.54.0\glslang\glslang\Debug\glslangd.lib;C:\VulkanSDK\1.0.54.0\glslang\glslang\OSDependent\Windows\Debug\OSDependentd.lib;C:\VulkanSDK\1.0.54.0\glslang\OGLCompilersDLL\Debug\OGLCompilerd.lib;C:\VulkanSDK\1.0.54.0\glslang\hlsl\Debug\HLSLd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

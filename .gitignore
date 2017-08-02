@@ -1,3 +1,5 @@
 
 *.sdf
 *.db
+*.ipch
+*.opendb
