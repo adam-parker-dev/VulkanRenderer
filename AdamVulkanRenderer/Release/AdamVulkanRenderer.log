@@ -1,0 +1,9 @@
+﻿  AdamVulkanRenderer.cpp
+  VulkanInstance.cpp
+  Generating code
+  141 of 588 functions (24.0%) were compiled, the rest were copied from previous compilation.
+    84 functions were new in current compilation
+    14 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  AdamVulkanRenderer.vcxproj -> C:\Users\adparker\Documents\ADAM_PARKER_PROJECT\AdamVulkanRenderer\Release\AdamVulkanRenderer.exe
+  AdamVulkanRenderer.vcxproj -> C:\Users\adparker\Documents\ADAM_PARKER_PROJECT\AdamVulkanRenderer\Release\AdamVulkanRenderer.pdb (Full PDB)
