@@ -559,9 +559,9 @@ void VulkanInstance::InitSwapChain()
 void VulkanInstance::CreateDepthBuffer()
 {
     VkImageCreateInfo imageInfo = {};
-    const VkFormat depthFormat = VK_FORMAT_D16_UNORM;
+    m_depthBuffer.format = VK_FORMAT_D16_UNORM;
     VkFormatProperties props;
-    vkGetPhysicalDeviceFormatProperties(m_vulkanDeviceVector[0], depthFormat, &props);
+    vkGetPhysicalDeviceFormatProperties(m_vulkanDeviceVector[0], m_depthBuffer.format, &props);
     if (props.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
     {
         imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
@@ -579,7 +579,7 @@ void VulkanInstance::CreateDepthBuffer()
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.pNext = NULL;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = depthFormat;
+    imageInfo.format = m_depthBuffer.format;
     imageInfo.extent.width = m_windowWidth;
     imageInfo.extent.height = m_windowHeight;
     imageInfo.extent.depth = 1;
@@ -604,7 +604,7 @@ void VulkanInstance::CreateDepthBuffer()
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.pNext = NULL;
     viewInfo.image = VK_NULL_HANDLE;
-    viewInfo.format = depthFormat;
+    viewInfo.format = m_depthBuffer.format;
     viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
     viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
     viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
@@ -692,20 +692,18 @@ void VulkanInstance::CreateUniformBuffer(int threadNum)
 
     Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 100.0f);
 
-    View = glm::lookAt(glm::vec3(5, 3, 10),
+    View = glm::lookAt(glm::vec3(0, 5, 10),
         glm::vec3(0, 0, 0),
         glm::vec3(0, -1, 0));
 
     //Model = glm::mat4(1.0f);
     m_modelMatrices[threadNum] = glm::mat4(1.0f);
 
-    // Need to invert Y and Z axis due to the Vulkan layout.
-    // Need to dig into this a little more and understand it.
-    // TODO: Why are the Y and Z inverted?
+    // Need to invert Y and clip Z axis due to the Vulkan layout.
     Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, -1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, -0.5f, 0.5f,
-        0.0f, 0.0f, -0.5f, 1.0f);
+        0.0f, 0.0f, 0.5f, 0.0f,
+        0.0f, 0.0f, 0.5f, 1.0f);
 
     MVP = Clip * Projection * View * m_modelMatrices[threadNum];
 
@@ -779,23 +777,20 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 
     Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 100.0f);
 
-    View = glm::lookAt(glm::vec3(5, 3, 10),
+    View = glm::lookAt(glm::vec3(0, 5, 10),
         glm::vec3(0, 0, 0),
         glm::vec3(0, -1, 0));
 
     //Model = glm::mat4(1.0f);	
     m_modelMatrices[threadNum] = glm::rotate(m_modelMatrices[threadNum], 1.0f * dt, glm::vec3(0, 1, 0));
     m_modelMatrices[threadNum][3][0] = (float)(threadNum * 3);
+	m_modelMatrices[threadNum][3][2] = -(float)(threadNum * 3);
 
-    // Need to invert Y and Z axis due to the Vulkan layout.
-    // Need to dig into this a little more and understand it.
-    // TODO: Why are the Y and Z inverted?
-	// Change clockwise/counter-clockwise and negate y in 2nd column
-	// results are different, but is skewed
+    // Need to invert Y and clip Z axis due to the Vulkan layout.
     Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, -1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, -0.5f, 0.0f, 
-        0.0f, 0.0f, -0.5f, 1.0f);
+        0.0f, 0.0f, 0.5f, 0.0f, 
+        0.0f, 0.0f, 0.5f, 1.0f);
 
     MVP = Clip * Projection * View * m_modelMatrices[threadNum];
 
@@ -1112,7 +1107,7 @@ void VulkanInstance::InitPipeline()
     vulkanVertextInputAttributes[0].offset = 0;
     vulkanVertextInputAttributes[1].binding = 0;
     vulkanVertextInputAttributes[1].location = 1;
-    vulkanVertextInputAttributes[1].format = VK_FORMAT_R32G32_SFLOAT; // for texture
+    vulkanVertextInputAttributes[1].format = VK_FORMAT_R32G32_SFLOAT; // for texture coordinates
     vulkanVertextInputAttributes[1].offset = 16;
 
     VkPipelineCacheCreateInfo pipelineCacheInfo;
@@ -1155,8 +1150,8 @@ void VulkanInstance::InitPipeline()
     rsInfo.flags = 0;
     rsInfo.polygonMode = VK_POLYGON_MODE_FILL;
     rsInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-    rsInfo.frontFace = VK_FRONT_FACE_CLOCKWISE; // This changes based on what cube data you are using
-    rsInfo.depthClampEnable = VK_TRUE;
+    rsInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rsInfo.depthClampEnable = VK_FALSE;
     rsInfo.rasterizerDiscardEnable = VK_FALSE;
     rsInfo.depthBiasEnable = VK_FALSE;
     rsInfo.depthBiasConstantFactor = 0;
@@ -2056,7 +2051,7 @@ void VulkanInstance::InitTexture()
     samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.mipLodBias = 0.0;
     samplerCreateInfo.anisotropyEnable = VK_FALSE,
-        samplerCreateInfo.maxAnisotropy = 0;
+    samplerCreateInfo.maxAnisotropy = 1;
     samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
     samplerCreateInfo.minLod = 0.0;
     samplerCreateInfo.maxLod = 0.0;
