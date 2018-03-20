@@ -1,5 +1,2 @@
-﻿  VulkanInstance.cpp
-c:\vulkansdk\1.0.54.0\glslang\glslang\public\shaderlang.h(365): warning C4458: declaration of 'stage' hides class member
-  c:\vulkansdk\1.0.54.0\glslang\glslang\public\shaderlang.h(500): note: see declaration of 'glslang::TShader::stage'
-  AdamVulkanRenderer.vcxproj -> C:\Users\Adam Parker\Documents\GitHub\VulkanRenderer\Debug\AdamVulkanRenderer.exe
+﻿  AdamVulkanRenderer.vcxproj -> C:\Users\Adam Parker\Documents\GitHub\VulkanRenderer\Debug\AdamVulkanRenderer.exe
   AdamVulkanRenderer.vcxproj -> C:\Users\Adam Parker\Documents\GitHub\VulkanRenderer\Debug\AdamVulkanRenderer.pdb (Full PDB)

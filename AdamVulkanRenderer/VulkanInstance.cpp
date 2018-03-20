@@ -779,7 +779,7 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 
     View = glm::lookAt(glm::vec3(0, 5, 10),
         glm::vec3(0, 0, 0),
-        glm::vec3(0, -1, 0));
+        glm::vec3(0, 1, 0));
 
     //Model = glm::mat4(1.0f);	
     m_modelMatrices[threadNum] = glm::rotate(m_modelMatrices[threadNum], 1.0f * dt, glm::vec3(0, 1, 0));
