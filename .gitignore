@@ -6,3 +6,14 @@
 *.pdb
 *.idb
 .vs/AdamVulkanRenderer/v14/.suo
+*.lastbuildstate
+*.tlog
+AdamVulkanRenderer/Debug/AdamVulkanRenderer.log
+AdamVulkanRenderer/Debug/AdamVulkanRenderer.obj
+AdamVulkanRenderer/Debug/AdamVulkanRenderer.res
+AdamVulkanRenderer/Debug/AdamVulkanRenderer.pch
+AdamVulkanRenderer/Debug/stdafx.obj
+AdamVulkanRenderer/Debug/VulkanInstance.obj
+AdamVulkanRenderer/Release/AdamVulkanRenderer.log
+AdamVulkanRenderer/Release/AdamVulkanRenderer.pch
+AdamVulkanRenderer/Release/stdafx.obj
