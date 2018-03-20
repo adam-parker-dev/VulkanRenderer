@@ -1,4 +1,3 @@
-
 *.sdf
 *.db
 *.ipch
@@ -17,3 +16,5 @@ AdamVulkanRenderer/Debug/VulkanInstance.obj
 AdamVulkanRenderer/Release/AdamVulkanRenderer.log
 AdamVulkanRenderer/Release/AdamVulkanRenderer.pch
 AdamVulkanRenderer/Release/stdafx.obj
+Debug/AdamVulkanRenderer.exe
+Debug/AdamVulkanRenderer.ilk
