@@ -18,3 +18,7 @@ AdamVulkanRenderer/Release/AdamVulkanRenderer.pch
 AdamVulkanRenderer/Release/stdafx.obj
 Debug/AdamVulkanRenderer.exe
 Debug/AdamVulkanRenderer.ilk
+AdamVulkanRenderer/Debug/Mat4.obj
+AdamVulkanRenderer/Debug/OBJFile.obj
+AdamVulkanRenderer/Debug/Shader.obj
+AdamVulkanRenderer/Debug/Simulation.obj

@@ -7,6 +7,7 @@
 #include "Cube.h"
 #include <winsock2.h>
 #include <windows.h>
+#include "Shader.h"
 
 // Vertex shader text
 // TODO: Bring in shader serialization code from OpenGL ES sample
@@ -20,12 +21,15 @@ static const char *vertShaderText =
 "layout (location = 0) in vec4 pos;\n"
 "layout (location = 1) in vec2 inTexCoords;\n"
 "layout (location = 0) out vec2 texcoord;\n"
+"layout (location = 1) out vec3 posColor;\n"
 "out gl_PerVertex { \n"
 "    vec4 gl_Position;\n"
 "};\n"
 "void main() {\n"
-"   texcoord = inTexCoords;\n"
+"   // Vulkan top-left 0,0 like direct-x, so adjust coordinates\n"
+"   texcoord = 1.0-inTexCoords;\n"
 "   gl_Position = myBufferVals.mvp * pos;\n"
+"   posColor = pos.xyz;\n"
 "}\n";
 
 // Fragment shader text
@@ -36,13 +40,12 @@ static const char *fragShaderText =
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "layout (binding = 1) uniform sampler2D tex;\n"
 "layout (location = 0) in vec2 texcoord;\n"
+"layout (location = 1) in vec3 debugColor;\n"
 "layout (location = 0) out vec4 outColor;\n"
 "void main() {\n"
 "   outColor = textureLod(tex, texcoord, 0.0);\n"
-"   //outColor = vec4(1,0,0,1);\n"
+"   //outColor = vec4(texcoord.xy,0.0,1.0);\n"
 "}\n";
-// TODO: Fix read ppm so textures are not backward
-
 
 // Call all the initialize functions needed to make the Vulkan render pipeline work
 void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded)
@@ -953,6 +956,12 @@ void VulkanInstance::InitRenderPass()
 // Information found in step 11 of VulkanAPI samples
 void VulkanInstance::InitShaders()
 {
+	Shader processor;
+	std::string vs;
+	std::string fs;
+	processor.LoadFile("vertex.vs", vs);
+	processor.LoadFile("fragment.fs", fs);
+
     std::vector<unsigned int> vtxSpv;
     m_vulkanPipelineShaderStageInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     m_vulkanPipelineShaderStageInfo[0].pNext = NULL;
@@ -963,6 +972,7 @@ void VulkanInstance::InitShaders()
 
     glslang::InitializeProcess();
     bool returnVal = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, vertShaderText, vtxSpv);
+	//bool returnVal = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, v, vtxSpv);
     assert(returnVal);
 
     VkShaderModuleCreateInfo moduleCreateInfo;
@@ -983,6 +993,7 @@ void VulkanInstance::InitShaders()
     m_vulkanPipelineShaderStageInfo[1].pName = "main";
 
     returnVal = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderText, fragSpv);
+	//returnVal = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, f, fragSpv);
     assert(returnVal);
 
     moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

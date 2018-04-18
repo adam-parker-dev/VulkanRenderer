@@ -160,13 +160,27 @@
   <ItemGroup>
     <ClInclude Include="AdamVulkanRenderer.h" />
     <ClInclude Include="Cube.h" />
+    <ClInclude Include="Manager.h" />
+    <ClInclude Include="Mat4.h" />
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="OBJFile.h" />
+    <ClInclude Include="Renderer.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="Shader.h" />
+    <ClInclude Include="Simulation.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="Triangle.h" />
+    <ClInclude Include="Vec3.h" />
+    <ClInclude Include="Vec4.h" />
     <ClInclude Include="VulkanInstance.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AdamVulkanRenderer.cpp" />
+    <ClCompile Include="Mat4.cpp" />
+    <ClCompile Include="OBJFile.cpp" />
+    <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="Simulation.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -184,8 +198,21 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="adam.ppm" />
+    <None Include="fragment.fs" />
     <None Include="lunarg.ppm" />
     <None Include="readtest.ppm" />
+    <None Include="vertex.vs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="box.obj">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Object>
+    <Object Include="sword.obj">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Object>
+    <Object Include="sword_old.obj">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Object>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
