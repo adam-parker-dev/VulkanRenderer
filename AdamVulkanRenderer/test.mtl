@@ -1,0 +1,5 @@
+﻿newmtl /Engine/EngineMaterials/DefaultMaterial_DefaultMaterial
+	map_Kd DefaultMaterial_DefaultMaterial_D.bmp
+	map_Ks DefaultMaterial_DefaultMaterial_S.bmp
+	bump DefaultMaterial_DefaultMaterial_N.bmp
+

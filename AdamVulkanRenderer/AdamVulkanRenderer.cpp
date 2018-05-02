@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "AdamVulkanRenderer.h"
 #include "VulkanInstance.h"
+#include "OBJFile.h"
 
 #define MAX_LOADSTRING 100
 
@@ -43,7 +44,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     // END: Get dimensions to pass on to Vulkan
 
     // Are we building for multi-threaded draw?
-    bool multithreaded = true;
+    bool multithreaded = false;
 
     // BEGIN: Vulkan initialization
     VulkanInstance renderer;
@@ -51,6 +52,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     // END: Vulkan initialization
 
     hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_ADAMVULKANRENDERER));
+
+	// just alloc for now, maybe stack later?
+	Model *model = new Model();
+	OBJFile::LoadFile("murdock.obj", *model);
+
+	renderer.AddModel(*model);
 
 	// BEGIN: Init frame time
 	frameTime = 0;

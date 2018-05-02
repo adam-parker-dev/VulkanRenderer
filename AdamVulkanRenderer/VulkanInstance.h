@@ -21,6 +21,7 @@
 #include "SPIRV/GlslangToSpv.h"
 #include <vector>
 #include <mutex>
+#include "Model.h"
 
 /* Number of descriptor sets needs to be the same at alloc, */
 /* pipeline layout creation, and descriptor set layout creation */
@@ -53,6 +54,8 @@ public:
 
     // Release memory
     void Destroy();
+
+	void AddModel(Model &model);
 
 private:
     // Init and creation functions
@@ -87,6 +90,8 @@ private:
     // Return width and height by reference
     bool ReadPPM(std::string filename, int &width, int &height, VkDeviceSize rowPitch, unsigned char* data);
     void InitTexture();
+
+	void VulkanInstance::DrawModels(int threadId, float dt);
 
     // Persistent members required for rendering
     VkInstance m_vulkanInstance;
@@ -155,8 +160,13 @@ private:
     struct VertexBuffer
     {
         VkBuffer buffer;
+		VkBuffer indices;
         VkDeviceMemory memory;
+		VkDeviceMemory indexMemory;
         VkDescriptorBufferInfo bufferInfo;
+		VkDescriptorBufferInfo indexInfo;
+		int numVertices;
+		int numIndices;
     };
 
     // Structure for layer properties
@@ -197,6 +207,9 @@ private:
     TP_CALLBACK_ENVIRON m_callbackEnv;
     PTP_WORK m_works[3];
     CallbackData *m_callbackData[3];
+
+	// Loading models
+	std::vector<VertexBuffer> models;
 };
 
 // Struct for callback data used in multi-threading

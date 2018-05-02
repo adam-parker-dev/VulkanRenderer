@@ -10,10 +10,6 @@
 class Model
 {
 public: 
-    float *gTriangleVertices;
-    float *gTriangleNormals;
-    char *gTriangleIndices;
-
     Triangle triangle;
 
     std::vector<float> fileVertices;

@@ -35,6 +35,10 @@ void OBJFile::LoadFile(std::string fileName, Model &model)
         while (std::getline(objFile, line))
         {
             // remove trailing return character and white space
+			if (line.length() <= 0)
+			{
+				continue;
+			}
             string::iterator lastChar = line.end() - 1;
             while (*lastChar == ' ' || *lastChar == '\r')
             {

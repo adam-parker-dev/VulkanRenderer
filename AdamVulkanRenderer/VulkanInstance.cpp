@@ -43,8 +43,9 @@ static const char *fragShaderText =
 "layout (location = 1) in vec3 debugColor;\n"
 "layout (location = 0) out vec4 outColor;\n"
 "void main() {\n"
-"   outColor = textureLod(tex, texcoord, 0.0);\n"
+"   //outColor = textureLod(tex, texcoord, 0.0);\n"
 "   //outColor = vec4(texcoord.xy,0.0,1.0);\n"
+"   outColor = vec4(1,0,0,1);\n"
 "}\n";
 
 // Call all the initialize functions needed to make the Vulkan render pipeline work
@@ -778,9 +779,9 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
     glm::mat4 Clip;
     glm::mat4 MVP;
 
-    Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 100.0f);
+    Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 10000.0f);
 
-    View = glm::lookAt(glm::vec3(0, 5, 10),
+    View = glm::lookAt(glm::vec3(0, 500, 1000),
         glm::vec3(0, 0, 0),
         glm::vec3(0, 1, 0));
 
@@ -1354,9 +1355,6 @@ void VulkanInstance::DrawCube(float dt)
     vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline);
     vkCmdBindDescriptorSets(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipelineLayout, 0, NUM_DESCRIPTOR_SETS, m_descriptorSets[0].data(), 0, NULL);
 
-    const VkDeviceSize offsets[1] = { 0 };
-    vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &m_vertexBuffers[0].buffer, offsets);
-
     VkViewport viewport;
     viewport.width = (float)m_windowWidth;
     viewport.height = (float)m_windowHeight;    
@@ -1373,11 +1371,24 @@ void VulkanInstance::DrawCube(float dt)
     scissor.offset.y = 0;
     vkCmdSetScissor(m_vulkanCommandBuffer, 0, NUM_SCISSORS, &scissor);
 
-    vkCmdDraw(m_vulkanCommandBuffer, 12 * 3, 1, 0, 0);
-    vkCmdEndRenderPass(m_vulkanCommandBuffer);
+	// OBJ MODEL BEGIN
 
-    result = vkEndCommandBuffer(m_vulkanCommandBuffer);
-    assert(result == VK_SUCCESS);
+	const VkDeviceSize offsets[1] = { 0 };
+	vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &models[0].buffer, offsets);
+	vkCmdBindIndexBuffer(m_vulkanCommandBuffer, models[0].indices, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+
+	vkCmdDrawIndexed(m_vulkanCommandBuffer, models[0].numIndices, 1, 0, 0, 0);
+
+	// OBJ MODEL END
+
+	//const VkDeviceSize offsets[1] = { 0 };
+	//vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &m_vertexBuffers[0].buffer, offsets);
+	//vkCmdDraw(m_vulkanCommandBuffer, 12 * 3, 1, 0, 0);
+
+	vkCmdEndRenderPass(m_vulkanCommandBuffer);
+
+	result = vkEndCommandBuffer(m_vulkanCommandBuffer);
+	assert(result == VK_SUCCESS);
 
     VkFenceCreateInfo fenceInfo;
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -2508,4 +2519,222 @@ void VulkanInstance::InitMultithreaded()
         m_callbackData[thread] = new CallbackData(this, thread, 0);
         m_works[thread] = CreateThreadpoolWork(WorkCallback, m_callbackData[thread], &m_callbackEnv);
     }
+}
+
+void VulkanInstance::AddModel(Model &model)
+{
+	std::vector<float> modifiedVertices;	
+	unsigned int currentIndex = 0;
+	for (int i = 0; i < model.fileVertices.size(); i+=3)
+	{
+		modifiedVertices.push_back(model.fileVertices[i]);
+		modifiedVertices.push_back(model.fileVertices[i + 1]);
+		modifiedVertices.push_back(model.fileVertices[i + 2]);
+		modifiedVertices.push_back(1.0f);
+		modifiedVertices.push_back(0);
+		modifiedVertices.push_back(0);
+	}
+	model.fileVertices = modifiedVertices;
+
+	VkBufferCreateInfo bufInfo = {};
+	VkMemoryRequirements memoryRequirements = {};
+	VkMemoryAllocateInfo allocInfo = {};
+	VkResult result = {};
+	VertexBuffer buffer;
+
+	// VERTEX ---------------------------------------------------------
+	// Set buffer info and create vertex buffer per thread
+	bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufInfo.pNext = NULL;
+	bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufInfo.size = sizeof(model.fileVertices[0]) * model.fileVertices.size();
+	bufInfo.queueFamilyIndexCount = 0;
+	bufInfo.pQueueFamilyIndices = NULL;
+	bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufInfo.flags = 0;
+	result = vkCreateBuffer(m_vulkanDevice, &bufInfo, NULL, &buffer.buffer);
+	assert(result == VK_SUCCESS);
+
+	// Get the memory requirements and fill out allocation info
+	vkGetBufferMemoryRequirements(m_vulkanDevice, buffer.buffer, &memoryRequirements);
+
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.pNext = NULL;
+	allocInfo.memoryTypeIndex = 0;
+	allocInfo.allocationSize = memoryRequirements.size;
+
+	bool pass = false;
+
+	// Search memory types to find first index with those properties
+	// TODO: Make this a function
+	uint32_t typeBits = memoryRequirements.memoryTypeBits;
+	for (uint32_t i = 0; i < 32; i++)
+	{
+		if ((typeBits & 1) == 1)
+		{
+			// Type is available, does it match user properties?
+			if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+				allocInfo.memoryTypeIndex = i;
+				pass = true;
+				break;
+			}
+		}
+		typeBits >>= 1;
+	}
+	assert(pass);
+
+	// Allocate vertex buffer memory per thread
+	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.memory);
+	assert(result == VK_SUCCESS);
+	buffer.bufferInfo.range = memoryRequirements.size;
+	buffer.bufferInfo.offset = 0;
+
+	// Map memory and copy over vertex data
+	uint8_t *pData;
+	result = vkMapMemory(m_vulkanDevice, buffer.memory, 0, memoryRequirements.size, 0, (void **)&pData);
+	assert(result == VK_SUCCESS);
+
+	memcpy(pData, model.fileVertices.data(), bufInfo.size);
+
+	vkUnmapMemory(m_vulkanDevice, buffer.memory);
+
+	result = vkBindBufferMemory(m_vulkanDevice, buffer.buffer, buffer.memory, 0);
+	assert(result == VK_SUCCESS);
+
+	// INDEX--------------------------------------------------------
+	bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufInfo.pNext = NULL;
+	bufInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	bufInfo.size = sizeof(model.fileIndices[0]) * model.fileIndices.size();
+	bufInfo.queueFamilyIndexCount = 0;
+	bufInfo.pQueueFamilyIndices = NULL;
+	bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufInfo.flags = 0;
+	result = vkCreateBuffer(m_vulkanDevice, &bufInfo, NULL, &buffer.indices);
+	assert(result == VK_SUCCESS);
+
+	// Get the memory requirements and fill out allocation info
+	vkGetBufferMemoryRequirements(m_vulkanDevice, buffer.indices, &memoryRequirements);
+
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.pNext = NULL;
+	allocInfo.memoryTypeIndex = 0;
+	allocInfo.allocationSize = memoryRequirements.size;
+
+	pass = false;
+
+	// Search memory types to find first index with those properties
+	// TODO: Make this a function
+	typeBits = memoryRequirements.memoryTypeBits;
+	for (uint32_t i = 0; i < 32; i++)
+	{
+		if ((typeBits & 1) == 1)
+		{
+			// Type is available, does it match user properties?
+			if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+				allocInfo.memoryTypeIndex = i;
+				pass = true;
+				break;
+			}
+		}
+		typeBits >>= 1;
+	}
+	assert(pass);
+
+	// Allocate vertex buffer memory per thread
+	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.indexMemory);
+	assert(result == VK_SUCCESS);
+	buffer.indexInfo.range = memoryRequirements.size;
+	buffer.indexInfo.offset = 0;
+
+	// Map memory and copy over vertex data
+	
+	uint8_t *indexData;
+	result = vkMapMemory(m_vulkanDevice, buffer.indexMemory, 0, memoryRequirements.size, 0, (void **)&indexData);
+	assert(result == VK_SUCCESS);
+
+	memcpy(indexData, model.fileIndices.data(), bufInfo.size);
+
+	vkUnmapMemory(m_vulkanDevice, buffer.indexMemory);
+
+	result = vkBindBufferMemory(m_vulkanDevice, buffer.indices, buffer.indexMemory, 0);
+	assert(result == VK_SUCCESS);
+
+	buffer.numIndices = model.fileIndices.size();
+	buffer.numVertices = model.fileVertices.size();
+
+	models.push_back(buffer);
+}
+
+// For now, just draw on thread 0
+void VulkanInstance::DrawModels(int threadId, float dt)
+{
+	VkWriteDescriptorSet writes[2];
+
+	writes[0] = {};
+	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[0].pNext = NULL;
+	writes[0].dstSet = m_descriptorSets[threadId][0];
+	writes[0].descriptorCount = 1;
+	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	writes[0].pBufferInfo = &m_uniformBuffers[threadId].bufferInfo;
+	writes[0].dstArrayElement = 0;
+	writes[0].dstBinding = 0;
+
+	writes[1] = {};
+	writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[1].dstSet = m_descriptorSets[threadId][0];
+	writes[1].descriptorCount = 1;
+	writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	writes[1].pImageInfo = &m_vulkanImageInfo;
+	writes[1].dstArrayElement = 0;
+	writes[1].dstBinding = 1;
+
+	vkUpdateDescriptorSets(m_vulkanDevice, 2, writes, 0, NULL);
+
+	VkCommandBufferInheritanceInfo inherit = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
+	inherit.framebuffer = m_vulkanFrameBuffers[m_currentBuffer];
+	inherit.renderPass = m_vulkanRenderPass;
+
+	VkCommandBufferBeginInfo cmdBufBeginInfo = {};
+	cmdBufBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufBeginInfo.pNext = NULL;
+	cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT |
+		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT |
+		VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;;
+	cmdBufBeginInfo.pInheritanceInfo = &inherit;
+
+	VkResult result = vkBeginCommandBuffer(m_commandBuffers[threadId], &cmdBufBeginInfo);
+	assert(result == VK_SUCCESS);
+
+	vkCmdBindPipeline(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline);
+	vkCmdBindDescriptorSets(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipelineLayout, 0, NUM_DESCRIPTOR_SETS, m_descriptorSets[threadId].data(), 0, NULL);
+
+	const VkDeviceSize offsets[1] = { 0 };
+	vkCmdBindVertexBuffers(m_commandBuffers[threadId], 0, 1, &models[0].buffer, offsets);
+	vkCmdBindIndexBuffer(m_commandBuffers[threadId], models[0].indices, 0, VkIndexType::VK_INDEX_TYPE_UINT32);	
+
+	VkViewport viewport;
+	viewport.height = (float)m_windowHeight;
+	viewport.width = (float)m_windowWidth;
+	viewport.minDepth = (float)0.0f;
+	viewport.maxDepth = (float)1.0f;
+	viewport.x = 0;
+	viewport.y = 0;
+	vkCmdSetViewport(m_commandBuffers[threadId], 0, NUM_VIEWPORTS, &viewport);
+
+	VkRect2D scissor;
+	scissor.extent.width = m_windowWidth;
+	scissor.extent.height = m_windowHeight;
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	vkCmdSetScissor(m_commandBuffers[threadId], 0, NUM_SCISSORS, &scissor);	
+
+	vkCmdDrawIndexed(m_commandBuffers[threadId], models[0].numIndices, 1, 0, 0, 0);
+	//vkCmdDraw(m_commandBuffers[threadId], numVertices * 3, 1, 0, 0);
+
+	result = vkEndCommandBuffer(m_commandBuffers[threadId]);
+	assert(result == VK_SUCCESS);
 }
