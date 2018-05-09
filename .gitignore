@@ -23,3 +23,7 @@ AdamVulkanRenderer/Debug/OBJFile.obj
 AdamVulkanRenderer/Debug/Shader.obj
 AdamVulkanRenderer/Debug/Simulation.obj
 AdamVulkanRenderer/Debug/Texture.obj
+*.ipch
+*.iobj
+*.ipdb
+*.pdb
