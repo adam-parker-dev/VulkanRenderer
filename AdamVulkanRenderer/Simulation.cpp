@@ -7,8 +7,8 @@ void Simulation::Init()
     model = new Model();
 
     /// TESTING ZONE! ///
-    OBJFile *objFile = new OBJFile();
-    objFile->LoadFile("/data/data/com.adam.parker.renderer/cache/box.obj", *model);
+    //OBJFile *objFile = new OBJFile();
+    //objFile->LoadFile("/data/data/com.adam.parker.renderer/cache/box.obj", *model);
     /// END TESTING ZONE! ///   
 
     // rotation handled in the shader right now...

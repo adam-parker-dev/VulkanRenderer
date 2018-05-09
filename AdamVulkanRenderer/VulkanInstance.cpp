@@ -9,45 +9,6 @@
 #include <windows.h>
 #include "Shader.h"
 
-// Vertex shader text
-// TODO: Bring in shader serialization code from OpenGL ES sample
-static const char *vertShaderText =
-"#version 400\n"
-"#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n"
-"layout (std140, binding = 0) uniform bufferVals {\n"
-"    mat4 mvp;\n"
-"} myBufferVals;\n"
-"layout (location = 0) in vec4 pos;\n"
-"layout (location = 1) in vec2 inTexCoords;\n"
-"layout (location = 0) out vec2 texcoord;\n"
-"layout (location = 1) out vec3 posColor;\n"
-"out gl_PerVertex { \n"
-"    vec4 gl_Position;\n"
-"};\n"
-"void main() {\n"
-"   // Vulkan top-left 0,0 like direct-x, so adjust coordinates\n"
-"   texcoord = 1.0-inTexCoords;\n"
-"   gl_Position = myBufferVals.mvp * pos;\n"
-"   posColor = pos.xyz;\n"
-"}\n";
-
-// Fragment shader text
-// TODO: Bring in shader serialization code from OpenGL ES sample
-static const char *fragShaderText =
-"#version 400\n"
-"#extension GL_ARB_separate_shader_objects : enable\n"
-"#extension GL_ARB_shading_language_420pack : enable\n"
-"layout (binding = 1) uniform sampler2D tex;\n"
-"layout (location = 0) in vec2 texcoord;\n"
-"layout (location = 1) in vec3 debugColor;\n"
-"layout (location = 0) out vec4 outColor;\n"
-"void main() {\n"
-"   //outColor = textureLod(tex, texcoord, 0.0);\n"
-"   //outColor = vec4(texcoord.xy,0.0,1.0);\n"
-"   outColor = vec4(1,0,0,1);\n"
-"}\n";
-
 // Call all the initialize functions needed to make the Vulkan render pipeline work
 void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded)
 {
@@ -64,7 +25,12 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
     InitCommandBuffer();
     InitSwapChain();
     CreateDepthBuffer();
-    InitTexture();
+
+	texture.InitTexture(m_vulkanDevice, m_vulkanDeviceVector[0], m_vulkanDeviceMemoryProperties, m_vulkanCommandBuffer, m_vulkanQueue);
+	m_vulkanImageInfo.imageView = texture.view;
+	m_vulkanImageInfo.sampler = texture.sampler;
+	m_vulkanImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
     CreateDescriptorLayouts();
     AllocateDescriptorSets();
     InitRenderPass();
@@ -94,7 +60,7 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 // Information found in step 1 of VulkanAPI samples
 void VulkanInstance::InitInstance()
 {
-    VkResult result;    
+    VkResult result;
 
     // These extension names are needed to create a valid win32 surface
     std::vector<const char *> instanceExtensionNames;
@@ -781,11 +747,15 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 
     Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 10000.0f);
 
-    View = glm::lookAt(glm::vec3(0, 500, 1000),
-        glm::vec3(0, 0, 0),
-        glm::vec3(0, 1, 0));
+	// For Unreal imports
+    //View = glm::lookAt(glm::vec3(0, 500, 1000),
+    //    glm::vec3(0, 0, 0),
+    //    glm::vec3(0, 1, 0));
 
-    //Model = glm::mat4(1.0f);	
+	View = glm::lookAt(glm::vec3(0, 5, 10),
+	    glm::vec3(0, 0, 0),
+	    glm::vec3(0, 1, 0));
+   	
     m_modelMatrices[threadNum] = glm::rotate(m_modelMatrices[threadNum], 1.0f * dt, glm::vec3(0, 1, 0));
     m_modelMatrices[threadNum][3][0] = (float)(threadNum * 3);
 	m_modelMatrices[threadNum][3][2] = -(float)(threadNum * 3);
@@ -972,8 +942,7 @@ void VulkanInstance::InitShaders()
     m_vulkanPipelineShaderStageInfo[0].pName = "main";
 
     glslang::InitializeProcess();
-    bool returnVal = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, vertShaderText, vtxSpv);
-	//bool returnVal = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, v, vtxSpv);
+	bool returnVal = processor.GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, vs.c_str(), vtxSpv);
     assert(returnVal);
 
     VkShaderModuleCreateInfo moduleCreateInfo;
@@ -993,8 +962,7 @@ void VulkanInstance::InitShaders()
     m_vulkanPipelineShaderStageInfo[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     m_vulkanPipelineShaderStageInfo[1].pName = "main";
 
-    returnVal = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderText, fragSpv);
-	//returnVal = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, f, fragSpv);
+	returnVal = processor.GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, fs.c_str(), fragSpv);
     assert(returnVal);
 
     moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -1372,13 +1340,14 @@ void VulkanInstance::DrawCube(float dt)
     vkCmdSetScissor(m_vulkanCommandBuffer, 0, NUM_SCISSORS, &scissor);
 
 	// OBJ MODEL BEGIN
+	for (int i = 0; i < models.size(); ++i)
+	{
+		const VkDeviceSize offsets[1] = { 0 };
+		vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &models[i].buffer, offsets);
+		vkCmdBindIndexBuffer(m_vulkanCommandBuffer, models[i].indices, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
 
-	const VkDeviceSize offsets[1] = { 0 };
-	vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &models[0].buffer, offsets);
-	vkCmdBindIndexBuffer(m_vulkanCommandBuffer, models[0].indices, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
-
-	vkCmdDrawIndexed(m_vulkanCommandBuffer, models[0].numIndices, 1, 0, 0, 0);
-
+		vkCmdDrawIndexed(m_vulkanCommandBuffer, models[i].numIndices, 1, 0, 0, 0);
+	}
 	// OBJ MODEL END
 
 	//const VkDeviceSize offsets[1] = { 0 };
@@ -1510,674 +1479,6 @@ void VulkanInstance::Destroy()
     vkDestroyInstance(m_vulkanInstance, NULL);
 }
 
-// TODO: Rewrite this to be your own
-bool VulkanInstance::GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<unsigned int> &spirv)
-{
-    glslang::TProgram &program = *new glslang::TProgram;
-    const char *shaderStrings[1];
-    TBuiltInResource Resources;
-    InitShaderResources(Resources);
-
-    // Enable SPIR-V and Vulkan rules when parsing GLSL
-    EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
-
-    EShLanguage stage = FindLanguage(shader_type);
-    glslang::TShader *shader = new glslang::TShader(stage);
-
-    shaderStrings[0] = pshader;
-    shader->setStrings(shaderStrings, 1);
-
-    if (!shader->parse(&Resources, 100, false, messages)) {
-        puts(shader->getInfoLog());
-        puts(shader->getInfoDebugLog());
-        return false; // something didn't work
-    }
-
-    program.addShader(shader);
-
-    //
-    // Program-level processing...
-    //
-
-    if (!program.link(messages)) {
-        puts(shader->getInfoLog());
-        puts(shader->getInfoDebugLog());
-        return false;
-    }
-
-    glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
-
-    return true;
-}
-
-void VulkanInstance::InitShaderResources(TBuiltInResource &Resources) {
-    Resources.maxLights = 32;
-    Resources.maxClipPlanes = 6;
-    Resources.maxTextureUnits = 32;
-    Resources.maxTextureCoords = 32;
-    Resources.maxVertexAttribs = 64;
-    Resources.maxVertexUniformComponents = 4096;
-    Resources.maxVaryingFloats = 64;
-    Resources.maxVertexTextureImageUnits = 32;
-    Resources.maxCombinedTextureImageUnits = 80;
-    Resources.maxTextureImageUnits = 32;
-    Resources.maxFragmentUniformComponents = 4096;
-    Resources.maxDrawBuffers = 32;
-    Resources.maxVertexUniformVectors = 128;
-    Resources.maxVaryingVectors = 8;
-    Resources.maxFragmentUniformVectors = 16;
-    Resources.maxVertexOutputVectors = 16;
-    Resources.maxFragmentInputVectors = 15;
-    Resources.minProgramTexelOffset = -8;
-    Resources.maxProgramTexelOffset = 7;
-    Resources.maxClipDistances = 8;
-    Resources.maxComputeWorkGroupCountX = 65535;
-    Resources.maxComputeWorkGroupCountY = 65535;
-    Resources.maxComputeWorkGroupCountZ = 65535;
-    Resources.maxComputeWorkGroupSizeX = 1024;
-    Resources.maxComputeWorkGroupSizeY = 1024;
-    Resources.maxComputeWorkGroupSizeZ = 64;
-    Resources.maxComputeUniformComponents = 1024;
-    Resources.maxComputeTextureImageUnits = 16;
-    Resources.maxComputeImageUniforms = 8;
-    Resources.maxComputeAtomicCounters = 8;
-    Resources.maxComputeAtomicCounterBuffers = 1;
-    Resources.maxVaryingComponents = 60;
-    Resources.maxVertexOutputComponents = 64;
-    Resources.maxGeometryInputComponents = 64;
-    Resources.maxGeometryOutputComponents = 128;
-    Resources.maxFragmentInputComponents = 128;
-    Resources.maxImageUnits = 8;
-    Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
-    Resources.maxCombinedShaderOutputResources = 8;
-    Resources.maxImageSamples = 0;
-    Resources.maxVertexImageUniforms = 0;
-    Resources.maxTessControlImageUniforms = 0;
-    Resources.maxTessEvaluationImageUniforms = 0;
-    Resources.maxGeometryImageUniforms = 0;
-    Resources.maxFragmentImageUniforms = 8;
-    Resources.maxCombinedImageUniforms = 8;
-    Resources.maxGeometryTextureImageUnits = 16;
-    Resources.maxGeometryOutputVertices = 256;
-    Resources.maxGeometryTotalOutputComponents = 1024;
-    Resources.maxGeometryUniformComponents = 1024;
-    Resources.maxGeometryVaryingComponents = 64;
-    Resources.maxTessControlInputComponents = 128;
-    Resources.maxTessControlOutputComponents = 128;
-    Resources.maxTessControlTextureImageUnits = 16;
-    Resources.maxTessControlUniformComponents = 1024;
-    Resources.maxTessControlTotalOutputComponents = 4096;
-    Resources.maxTessEvaluationInputComponents = 128;
-    Resources.maxTessEvaluationOutputComponents = 128;
-    Resources.maxTessEvaluationTextureImageUnits = 16;
-    Resources.maxTessEvaluationUniformComponents = 1024;
-    Resources.maxTessPatchComponents = 120;
-    Resources.maxPatchVertices = 32;
-    Resources.maxTessGenLevel = 64;
-    Resources.maxViewports = 16;
-    Resources.maxVertexAtomicCounters = 0;
-    Resources.maxTessControlAtomicCounters = 0;
-    Resources.maxTessEvaluationAtomicCounters = 0;
-    Resources.maxGeometryAtomicCounters = 0;
-    Resources.maxFragmentAtomicCounters = 8;
-    Resources.maxCombinedAtomicCounters = 8;
-    Resources.maxAtomicCounterBindings = 1;
-    Resources.maxVertexAtomicCounterBuffers = 0;
-    Resources.maxTessControlAtomicCounterBuffers = 0;
-    Resources.maxTessEvaluationAtomicCounterBuffers = 0;
-    Resources.maxGeometryAtomicCounterBuffers = 0;
-    Resources.maxFragmentAtomicCounterBuffers = 1;
-    Resources.maxCombinedAtomicCounterBuffers = 1;
-    Resources.maxAtomicCounterBufferSize = 16384;
-    Resources.maxTransformFeedbackBuffers = 4;
-    Resources.maxTransformFeedbackInterleavedComponents = 64;
-    Resources.maxCullDistances = 8;
-    Resources.maxCombinedClipAndCullDistances = 8;
-    Resources.maxSamples = 4;
-    Resources.limits.nonInductiveForLoops = 1;
-    Resources.limits.whileLoops = 1;
-    Resources.limits.doWhileLoops = 1;
-    Resources.limits.generalUniformIndexing = 1;
-    Resources.limits.generalAttributeMatrixVectorIndexing = 1;
-    Resources.limits.generalVaryingIndexing = 1;
-    Resources.limits.generalSamplerIndexing = 1;
-    Resources.limits.generalVariableIndexing = 1;
-    Resources.limits.generalConstantMatrixVectorIndexing = 1;
-}
-
-EShLanguage VulkanInstance::FindLanguage(const VkShaderStageFlagBits shader_type) {
-    switch (shader_type) {
-    case VK_SHADER_STAGE_VERTEX_BIT:
-        return EShLangVertex;
-
-    case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
-        return EShLangTessControl;
-
-    case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
-        return EShLangTessEvaluation;
-
-    case VK_SHADER_STAGE_GEOMETRY_BIT:
-        return EShLangGeometry;
-
-    case VK_SHADER_STAGE_FRAGMENT_BIT:
-        return EShLangFragment;
-
-    case VK_SHADER_STAGE_COMPUTE_BIT:
-        return EShLangCompute;
-
-    default:
-        return EShLangVertex;
-    }
-}
-
-void VulkanInstance::InitTexture()
-{
-    texture textureObject;
-    VkDeviceMemory stagingImage;
-    VkImage	stagingMemory;
-    VkResult result;
-    bool pass;
-
-    std::string filename;
-    filename.append("adam.ppm");
-
-    int width = 0;
-    int height = 0;
-    if (!ReadPPM(filename.c_str(), width, height, 0, NULL))
-    {
-        std::cout << "Could not read texture file";
-        exit(-1);
-    }
-
-    VkFormatProperties formatProps;
-    vkGetPhysicalDeviceFormatProperties(m_vulkanDeviceVector[0], VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
-
-    VkFormatFeatureFlags allFeatures = (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
-    bool needStaging = ((formatProps.linearTilingFeatures & allFeatures) != allFeatures) ? true : false;
-
-    if (needStaging)
-    {
-        assert((formatProps.optimalTilingFeatures & allFeatures) == allFeatures);
-    }
-
-    // begin init of image
-    VkImageCreateInfo imageCreateInfo = {};
-    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageCreateInfo.pNext = NULL;
-    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageCreateInfo.extent.width = width;
-    imageCreateInfo.extent.height = height;
-    imageCreateInfo.extent.depth = 1;
-    imageCreateInfo.mipLevels = 1;
-    imageCreateInfo.arrayLayers = 1;
-    imageCreateInfo.samples = NUM_SAMPLES;
-    imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
-    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageCreateInfo.usage = needStaging ? (VK_IMAGE_USAGE_TRANSFER_SRC_BIT) : (VK_IMAGE_USAGE_SAMPLED_BIT);
-    imageCreateInfo.queueFamilyIndexCount = 0;
-    imageCreateInfo.pQueueFamilyIndices = NULL;
-    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageCreateInfo.flags = 0;
-
-    VkMemoryAllocateInfo mem_alloc = {};
-    mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mem_alloc.pNext = NULL;
-    mem_alloc.allocationSize = 0;
-    mem_alloc.memoryTypeIndex = 0;
-
-    VkImage mappableImage;
-    VkDeviceMemory mappableMemory;
-
-    VkMemoryRequirements mem_reqs;
-
-
-    result = vkCreateImage(m_vulkanDevice, &imageCreateInfo, NULL, &mappableImage);
-    assert(result == VK_SUCCESS);
-
-    vkGetImageMemoryRequirements(m_vulkanDevice, mappableImage, &mem_reqs);
-    assert(result == VK_SUCCESS);
-
-    mem_alloc.allocationSize = mem_reqs.size;
-
-    pass = false;
-
-    uint32_t typeBits = mem_reqs.memoryTypeBits;
-    uint32_t requirementsMask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    for (uint32_t i = 0; i < m_vulkanDeviceMemoryProperties.memoryTypeCount; ++i)
-    {
-        if ((typeBits & 1) == 1)
-        {
-            if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirementsMask) == requirementsMask)
-            {
-                mem_alloc.memoryTypeIndex = i;
-                pass = true;
-            }
-        }
-        typeBits >>= 1;
-    }
-
-    assert(pass && "No mappable, coherent memory");
-
-    result = vkAllocateMemory(m_vulkanDevice, &mem_alloc, NULL, &(mappableMemory));
-    assert(result == VK_SUCCESS);
-
-    result = vkBindImageMemory(m_vulkanDevice, mappableImage, mappableMemory, 0);
-    assert(result == VK_SUCCESS);
-
-    // Begin set image layout
-    VkImageMemoryBarrier imageMemoryBarrier;
-    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageMemoryBarrier.pNext = NULL;
-    imageMemoryBarrier.srcAccessMask = 0;
-    imageMemoryBarrier.dstAccessMask = 0;
-    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageMemoryBarrier.image = mappableImage;
-    imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-    imageMemoryBarrier.subresourceRange.levelCount = 1;
-    imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-    imageMemoryBarrier.subresourceRange.layerCount = 1;
-
-    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-
-    VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-    vkCmdPipelineBarrier(m_vulkanCommandBuffer, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
-    // end set image layout
-
-    result = vkEndCommandBuffer(m_vulkanCommandBuffer);
-    assert(result == VK_SUCCESS);
-    const VkCommandBuffer cmdBufs[] = { m_vulkanCommandBuffer };
-    VkFenceCreateInfo fenceInfo;
-    VkFence cmdFence;
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.pNext = NULL;
-    fenceInfo.flags = 0;
-    vkCreateFence(m_vulkanDevice, &fenceInfo, NULL, &cmdFence);
-
-    VkSubmitInfo submitInfo[1] = {};
-    submitInfo[0].pNext = NULL;
-    submitInfo[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo[0].waitSemaphoreCount = 0;
-    submitInfo[0].pWaitSemaphores = NULL;
-    submitInfo[0].pWaitDstStageMask = NULL;
-    submitInfo[0].commandBufferCount = 1;
-    submitInfo[0].pCommandBuffers = cmdBufs;
-    submitInfo[0].signalSemaphoreCount = 0;
-    submitInfo[0].pSignalSemaphores = NULL;
-
-    result = vkQueueSubmit(m_vulkanQueue, 1, submitInfo, cmdFence);
-    assert(result == VK_SUCCESS);
-
-    VkImageSubresource subres = {};
-    subres.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    subres.mipLevel = 0;
-    subres.arrayLayer = 0;
-
-    VkSubresourceLayout layout;
-    void *data;
-
-    /* Get the subresource layout so we know what the row pitch is */
-    vkGetImageSubresourceLayout(m_vulkanDevice, mappableImage, &subres, &layout);
-
-    do
-    {
-        result = vkWaitForFences(m_vulkanDevice, 1, &cmdFence, VK_TRUE, FENCE_TIMEOUT);
-    } while (result == VK_TIMEOUT);
-    assert(result == VK_SUCCESS);
-
-
-    vkDestroyFence(m_vulkanDevice, cmdFence, NULL);
-
-    result = vkMapMemory(m_vulkanDevice, mappableMemory, 0, mem_reqs.size, 0, &data);
-    assert(result == VK_SUCCESS);
-
-    //result = vkAllocateMemory(m_vulkanDevice, &mem_alloc, NULL, &(mappableMemory));
-    //assert(result == VK_SUCCESS);
-
-    //result = vkBindImageMemory(device, mappableImage, mappableMemory, 0);
-    //assert(result == VK_SUCCESS);
-
-    if (!ReadPPM(filename.c_str(), width, height, layout.rowPitch, (unsigned char*)data))
-    {
-        std::cout << "Could not load texture file " << filename.c_str();
-        exit(-1);
-    }
-
-    vkUnmapMemory(m_vulkanDevice, mappableMemory);
-
-    VkCommandBufferBeginInfo cmdBufInfo = {};
-    cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    cmdBufInfo.pNext = NULL;
-    cmdBufInfo.flags = 0;
-    cmdBufInfo.pInheritanceInfo = NULL;
-
-    result = vkResetCommandBuffer(m_vulkanCommandBuffer, 0);
-    result = vkBeginCommandBuffer(m_vulkanCommandBuffer, &cmdBufInfo);
-    assert(result == VK_SUCCESS);
-
-    if (!needStaging)
-    {
-        textureObject.image = mappableImage;
-        textureObject.memory = mappableMemory;
-        textureObject.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        // set image layout
-
-        imageMemoryBarrier;
-        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        imageMemoryBarrier.pNext = NULL;
-        imageMemoryBarrier.srcAccessMask = 0;
-        imageMemoryBarrier.dstAccessMask = 0;
-        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-        imageMemoryBarrier.newLayout = textureObject.imageLayout;
-        imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.image = mappableImage;
-        imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-        imageMemoryBarrier.subresourceRange.levelCount = 1;
-        imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-        imageMemoryBarrier.subresourceRange.layerCount = 1;
-
-        // Depends on new lyout
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-
-        src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-        vkCmdPipelineBarrier(m_vulkanCommandBuffer, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
-        //end set image layout
-
-
-        stagingImage = VK_NULL_HANDLE;
-        stagingMemory = VK_NULL_HANDLE;
-    }
-    else
-    {
-        // Mappable image cannot be texture, so create optimally tiled image and blit to it */
-        imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-        result = vkCreateImage(m_vulkanDevice, &imageCreateInfo, NULL, &textureObject.image);
-        assert(result == VK_SUCCESS);
-
-        vkGetImageMemoryRequirements(m_vulkanDevice, textureObject.image, &mem_reqs);
-
-        mem_alloc.allocationSize = mem_reqs.size;
-
-        pass = false;
-
-        typeBits = mem_reqs.memoryTypeBits;
-        requirementsMask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-        for (uint32_t i = 0; i < m_vulkanDeviceMemoryProperties.memoryTypeCount; ++i)
-        {
-            if ((typeBits & 1) == 1)
-            {
-                if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirementsMask) == requirementsMask)
-                {
-                    mem_alloc.memoryTypeIndex = i;
-                    pass = true;
-                }
-            }
-            typeBits >>= 1;
-        }
-
-        assert(pass);
-
-        result = vkAllocateMemory(m_vulkanDevice, &mem_alloc, NULL, &textureObject.memory);
-        assert(result == VK_SUCCESS);
-
-        result = vkBindImageMemory(m_vulkanDevice, textureObject.image, textureObject.memory, 0);
-        assert(result == VK_SUCCESS);
-
-        /* Blit from mappable image and set layout to source optimal */
-        imageMemoryBarrier;
-        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        imageMemoryBarrier.pNext = NULL;
-        imageMemoryBarrier.srcAccessMask = 0;
-        imageMemoryBarrier.dstAccessMask = 0;
-        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.image = mappableImage;
-        imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-        imageMemoryBarrier.subresourceRange.levelCount = 1;
-        imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-        imageMemoryBarrier.subresourceRange.layerCount = 1;
-
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-        src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-        vkCmdPipelineBarrier(m_vulkanCommandBuffer, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
-        /* end set layout */
-
-        /* Blit to texture, set destination optimal layout*/
-        imageMemoryBarrier;
-        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        imageMemoryBarrier.pNext = NULL;
-        imageMemoryBarrier.srcAccessMask = 0;
-        imageMemoryBarrier.dstAccessMask = 0;
-        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.image = mappableImage;
-        imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-        imageMemoryBarrier.subresourceRange.levelCount = 1;
-        imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-        imageMemoryBarrier.subresourceRange.layerCount = 1;
-
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-        src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-        vkCmdPipelineBarrier(m_vulkanCommandBuffer, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
-        /* end set layout */
-
-        VkImageCopy copyRegion;
-        copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copyRegion.srcSubresource.mipLevel = 0;
-        copyRegion.srcSubresource.baseArrayLayer = 0;
-        copyRegion.srcSubresource.layerCount = 1;
-        copyRegion.srcOffset.x = 0;
-        copyRegion.srcOffset.y = 0;
-        copyRegion.srcOffset.z = 0;
-        copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copyRegion.dstSubresource.mipLevel = 0;
-        copyRegion.dstSubresource.baseArrayLayer = 0;
-        copyRegion.dstSubresource.layerCount = 1;
-        copyRegion.dstOffset.x = 0;
-        copyRegion.dstOffset.y = 0;
-        copyRegion.dstOffset.z = 0;
-        copyRegion.extent.width = width;
-        copyRegion.extent.height = height;
-        copyRegion.extent.depth = 1;
-
-        // Put copy command into commabd buffer
-        vkCmdCopyImage(m_vulkanCommandBuffer, mappableImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, textureObject.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-
-        // Set layout for texture image form destination optimal to shader read only
-        textureObject.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageMemoryBarrier;
-        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        imageMemoryBarrier.pNext = NULL;
-        imageMemoryBarrier.srcAccessMask = 0;
-        imageMemoryBarrier.dstAccessMask = 0;
-        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.image = mappableImage;
-        imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-        imageMemoryBarrier.subresourceRange.levelCount = 1;
-        imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-        imageMemoryBarrier.subresourceRange.layerCount = 1;
-
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-        vkCmdPipelineBarrier(m_vulkanCommandBuffer, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
-        // end set image layout
-
-        stagingImage = mappableImage;
-        stagingMemory = mappableMemory;
-    }
-
-    VkImageViewCreateInfo viewInfo = {};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.pNext = NULL;
-    viewInfo.image = VK_NULL_HANDLE;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
-    viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
-    viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
-    viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    viewInfo.image = textureObject.image;
-    result = vkCreateImageView(m_vulkanDevice, &viewInfo, NULL, &textureObject.view);
-    assert(result == VK_SUCCESS);
-    // END INIT IMAGE
-
-    // BEGIN CREATE SAMPLER
-    VkSamplerCreateInfo samplerCreateInfo = {};
-    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
-    samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
-    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.mipLodBias = 0.0;
-    samplerCreateInfo.anisotropyEnable = VK_FALSE,
-    samplerCreateInfo.maxAnisotropy = 1;
-    samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-    samplerCreateInfo.minLod = 0.0;
-    samplerCreateInfo.maxLod = 0.0;
-    samplerCreateInfo.compareEnable = VK_FALSE;
-    samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-    /* create sampler */
-    result = vkCreateSampler(m_vulkanDevice, &samplerCreateInfo, NULL, &textureObject.sampler);
-    assert(result == VK_SUCCESS);
-    // ENd create sampler	
-
-    m_shaderTexture = textureObject;
-    m_vulkanImageInfo.imageView = textureObject.view;
-    m_vulkanImageInfo.sampler = textureObject.sampler;
-    m_vulkanImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-}
-
-bool VulkanInstance::ReadPPM(std::string filename, int &width, int &height, VkDeviceSize rowPitch, unsigned char *data)
-{
-    // PPM format expected from http://netpbm.sourceforge.net/doc/ppm.html
-    //  1. magic number
-    //  2. whitespace
-    //  3. width
-    //  4. whitespace
-    //  5. height
-    //  6. whitespace
-    //  7. max color value
-    //  8. whitespace
-    //  7. data
-
-    // Comments are not supported, but are detected
-    // Only 8 bits per channel is supported
-
-    char magicStr[3] = {};
-    char heightStr[6] = {};
-    char widthStr[6] = {};
-    char formatStr[6] = {};
-
-    FILE *fPtr;
-    errno_t errorNum = fopen_s(&fPtr, filename.c_str(), "rb");
-
-    if (!fPtr)
-    {
-        printf("Error fopen %i\n", errorNum);
-        printf("Bad filename in read_ppm: %s\nb", filename.c_str());
-    }
-
-    // Sizes from array size
-
-    // TODO: Add error checking here
-    fscanf_s(fPtr, "%s %s %s %s ", magicStr, 3, widthStr, 6, heightStr, 6, formatStr, 6);
-
-    if (magicStr[0] == '#' ||
-        widthStr[0] == '#' ||
-        heightStr[0] == '#' ||
-        formatStr[0] == '#')
-    {
-        printf("Unhandled comment in PPM file\n");
-        return false;
-    }
-
-    if (strncmp(magicStr, "P6", sizeof(magicStr)))
-    {
-        printf("Unhandled PPM magic number: %s\n", magicStr);
-        return false;
-    }
-
-    width = atoi(widthStr);
-    height = atoi(heightStr);
-
-    static const int saneDimension = 99999;
-    if (width <= 0 || width > saneDimension)
-    {
-        printf("Width outside acceptable bounds. Update PPM file.");
-        return false;
-    }
-    if (height <= 0 || height > saneDimension)
-    {
-        printf("Height outside acceptable bounds. Update PPM file.");
-        return false;
-    }
-
-    if (data == nullptr)
-    {
-        // Caller only wanted dimensions, no data read
-        return true;
-    }
-
-    for (int y = 0; y < height; y++)
-    {
-        unsigned char *rowPtr = data;
-        for (int x = 0; x < width; x++)
-        {
-            fread(rowPtr, 3, 1, fPtr);
-            rowPtr[3] = 255; /* Alpha of 1. TODO: Support alpha */
-            rowPtr += 4;			
-        }
-        data += rowPitch; // why would we change pitch? Examples never do...
-    }
-
-    fclose(fPtr);
-
-    return true;
-}
 void VulkanInstance::PerThreadCode(int threadId, float dt)
 {
     UpdateUniformBuffer(threadId, dt);

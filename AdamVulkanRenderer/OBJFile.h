@@ -16,7 +16,7 @@ class OBJFile
 public:    
     //std::vector<GLfloat> vertices;
     //std::vector<GLbyte> indices;
-    static void LoadFile(std::string fileName, Model &model);
+    static void LoadFile(std::string fileName, std::vector<Model> &models);
 };
 
 

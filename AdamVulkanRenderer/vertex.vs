@@ -16,4 +16,4 @@ void main() {
    texcoord = 1.0-inTexCoords;
    gl_Position = myBufferVals.mvp * pos;
    posColor = pos.xyz;
-};
+}

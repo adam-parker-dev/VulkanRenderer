@@ -22,6 +22,7 @@
 #include <vector>
 #include <mutex>
 #include "Model.h"
+#include "Texture.h"
 
 /* Number of descriptor sets needs to be the same at alloc, */
 /* pipeline layout creation, and descriptor set layout creation */
@@ -31,7 +32,6 @@
 #define FENCE_TIMEOUT 100000000
 #define NUM_VIEWPORTS 1
 #define NUM_SCISSORS NUM_VIEWPORTS
-#define NUM_SAMPLES VK_SAMPLE_COUNT_1_BIT
 
 // Forward declaration for multi-threading callback data structure
 struct CallbackData;
@@ -81,17 +81,8 @@ private:
     // Init buffers for multithreaded
     void InitMultithreaded();
 
-    // Shader compilation functions
-    bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<unsigned int> &spirv);
-    void InitShaderResources(TBuiltInResource &Resources);
-    EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type);
-
-    // Creating textures
-    // Return width and height by reference
-    bool ReadPPM(std::string filename, int &width, int &height, VkDeviceSize rowPitch, unsigned char* data);
-    void InitTexture();
-
 	void VulkanInstance::DrawModels(int threadId, float dt);
+	Texture texture;
 
     // Persistent members required for rendering
     VkInstance m_vulkanInstance;
@@ -175,18 +166,6 @@ private:
         VkLayerProperties properties;
         std::vector<VkExtensionProperties> extensions;
     } m_layerProperties;
-
-    // Structure for textures
-    struct texture
-    {
-        VkSampler sampler;
-        VkImage image;
-        VkImageLayout imageLayout;
-        VkDeviceMemory memory;
-        VkImageView view;
-        uint32_t texWidth;
-        uint32_t texHeight;
-    } m_shaderTexture;
 
     // Threading support
     // Need to allocate buffers per thread or there

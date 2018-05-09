@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <map>
 
-void OBJFile::LoadFile(std::string fileName, Model &model)
+void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
 {
     // Store the raw vertices, normals, uvs per face
     std::vector<Vec3> vertices;
@@ -21,10 +21,11 @@ void OBJFile::LoadFile(std::string fileName, Model &model)
     // Vertices are stored in a counter-clockwise order by default
     // https://en.wikipedia.org/wiki/Wavefront_.obj_file
     // http://stackoverflow.com/questions/23723993/converting-quadriladerals-in-an-obj-file-into-triangles
-    std::vector<int> vertexIndices;
-    std::vector<int> normalsIndices;
-    std::vector<int> uvIndices;
-    std::map<std::pair<int, int>, int> vertexNormalPair;    
+    //std::vector<int> vertexIndices;
+    //std::vector<int> normalsIndices;
+    //std::vector<int> uvIndices;
+    std::map<std::pair<int, int>, int> vertexNormalPair;
+	Model model;
 
     std::ifstream objFile(fileName.c_str());
     std::string fileData;
@@ -45,6 +46,19 @@ void OBJFile::LoadFile(std::string fileName, Model &model)
                 line.pop_back();
                 lastChar = line.end() - 1;
             }
+
+			// g signals a new object
+			if (line.find("g") != std::string::npos)
+			{
+				if (model.fileVertices.size() > 0)
+				{
+					models.push_back(model);
+				}
+				model.fileIndices.clear();
+				model.fileNormals.clear();
+				model.fileVertices.clear();
+				vertexNormalPair.clear();
+			}
 
             // ******************************************************************
             // TODO: Implement for UV coordinates when we start importing textures! 
@@ -137,12 +151,12 @@ void OBJFile::LoadFile(std::string fileName, Model &model)
                         token = token.substr(slashPosition + 1, token.size() - slashPosition);
                         slashPosition = token.find('/') ;
                         int uvindex = atoi(token.substr(0, slashPosition).c_str()) - 1;
-                        uvIndices.push_back(uvindex);
+                        //uvIndices.push_back(uvindex);
 
                         // Normal index
                         token = token.substr(slashPosition + 1, token.size() - slashPosition);
                         int nindex = atoi(token.c_str()) - 1;
-                        normalsIndices.push_back(nindex);
+                        //normalsIndices.push_back(nindex);
 
                         // TODO: Implement smooth groups import.
 
@@ -230,7 +244,7 @@ void OBJFile::LoadFile(std::string fileName, Model &model)
                             }
                         }
 
-                        vertexIndices.push_back(vindex);
+                        //vertexIndices.push_back(vindex);
                     }
                 }
             }
