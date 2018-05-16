@@ -31,6 +31,9 @@
     <Filter Include="Header Files\Simulation">
       <UniqueIdentifier>{0175e2da-ba53-4131-bde4-da4110860f53}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Objects">
+      <UniqueIdentifier>{410fbcf6-82ff-49a0-a38c-aa53def57d2c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -86,6 +89,12 @@
     </ClInclude>
     <ClInclude Include="Texture.h">
       <Filter>Header Files\Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Header Files\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Light.h">
+      <Filter>Header Files\Objects</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
