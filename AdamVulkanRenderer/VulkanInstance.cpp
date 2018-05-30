@@ -747,7 +747,8 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 
     Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 10000.0f);
 
-	// For Unreal imports
+	// TAG: UNREAL
+	// For Unreal imports 
     //View = glm::lookAt(glm::vec3(0, 500, 1000),
     //    glm::vec3(0, 0, 0),
     //    glm::vec3(0, 1, 0));
@@ -1226,8 +1227,61 @@ void VulkanInstance::InitPipeline()
     pipelineInfo.renderPass = m_vulkanRenderPass;
     pipelineInfo.subpass = 0;
 
-    result = vkCreateGraphicsPipelines(m_vulkanDevice, m_vulkanPipelineCache, 1, &pipelineInfo, NULL, &m_vulkanPipeline);
+    result = vkCreateGraphicsPipelines(m_vulkanDevice, m_vulkanPipelineCache, 1, &pipelineInfo, NULL, &m_vulkanPipeline[0]);
     assert(result == VK_SUCCESS);
+
+	// Create a pipeline for drawing lines with same setup except different input assembler
+	VkGraphicsPipelineCreateInfo pipelineInfoLines = pipelineInfo;
+
+	VkVertexInputBindingDescription vulkanVertexInputBindingLines;
+	VkVertexInputAttributeDescription vulkanVertextInputAttributesLines;
+
+	vulkanVertexInputBindingLines.binding = 0;
+	vulkanVertexInputBindingLines.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	vulkanVertexInputBindingLines.stride = sizeof(Vec4);
+
+	vulkanVertextInputAttributesLines.binding = 0;
+	vulkanVertextInputAttributesLines.location = 0;
+	vulkanVertextInputAttributesLines.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	vulkanVertextInputAttributesLines.offset = 0;
+
+	VkPipelineInputAssemblyStateCreateInfo iaInfoLines;
+	iaInfoLines.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	iaInfoLines.pNext = NULL;
+	iaInfoLines.flags = 0;
+	iaInfoLines.primitiveRestartEnable = VK_FALSE;
+	iaInfoLines.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+	VkPipelineVertexInputStateCreateInfo viInfoLines;
+	viInfoLines.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	viInfoLines.pNext = NULL;
+	viInfoLines.flags = 0;
+	viInfoLines.vertexBindingDescriptionCount = 1;
+	viInfoLines.pVertexBindingDescriptions = &vulkanVertexInputBindingLines;
+	viInfoLines.vertexAttributeDescriptionCount = 1;
+	viInfoLines.pVertexAttributeDescriptions = &vulkanVertextInputAttributesLines;
+
+	VkPipelineRasterizationStateCreateInfo rsInfoLines;
+	rsInfoLines.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rsInfoLines.pNext = NULL;
+	rsInfoLines.flags = 0;
+	rsInfoLines.polygonMode = VK_POLYGON_MODE_LINE;
+	rsInfoLines.cullMode = VK_CULL_MODE_BACK_BIT;
+	rsInfoLines.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rsInfoLines.depthClampEnable = VK_FALSE;
+	rsInfoLines.rasterizerDiscardEnable = VK_FALSE;
+	rsInfoLines.depthBiasEnable = VK_FALSE;
+	rsInfoLines.depthBiasConstantFactor = 0;
+	rsInfoLines.depthBiasClamp = 0;
+	rsInfoLines.depthBiasSlopeFactor = 0;
+	rsInfoLines.lineWidth = 1;
+
+	pipelineInfoLines.pInputAssemblyState = &iaInfoLines;
+	pipelineInfoLines.pVertexInputState = &viInfoLines;
+	pipelineInfoLines.pRasterizationState = &rsInfoLines;
+
+	result = vkCreateGraphicsPipelines(m_vulkanDevice, m_vulkanPipelineCache, 1, &pipelineInfoLines, NULL, &m_vulkanPipeline[1]);
+	assert(result == VK_SUCCESS);
 }
 
 // Draw a cube with Vulkan
@@ -1320,7 +1374,7 @@ void VulkanInstance::DrawCube(float dt)
 
     vkCmdBeginRenderPass(m_vulkanCommandBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline);
+    vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[0]);
     vkCmdBindDescriptorSets(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipelineLayout, 0, NUM_DESCRIPTOR_SETS, m_descriptorSets[0].data(), 0, NULL);
 
     VkViewport viewport;
@@ -1350,9 +1404,23 @@ void VulkanInstance::DrawCube(float dt)
 	}
 	// OBJ MODEL END
 
-	//const VkDeviceSize offsets[1] = { 0 };
-	//vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &m_vertexBuffers[0].buffer, offsets);
-	//vkCmdDraw(m_vulkanCommandBuffer, 12 * 3, 1, 0, 0);
+	const VkDeviceSize offsets[1] = { 0 };
+	vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &m_vertexBuffers[0].buffer, offsets);
+	vkCmdDraw(m_vulkanCommandBuffer, 12 * 3, 1, 0, 0);
+
+	//vkCmdEndRenderPass(m_vulkanCommandBuffer);
+
+	//// Draw lines
+	//vkCmdBeginRenderPass(m_vulkanCommandBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[1]);
+
+	for (int i = 0; i < lines.size(); ++i)
+	{
+		const VkDeviceSize offsets[1] = { 0 };
+		vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &lines[i].buffer, offsets);
+		vkCmdDraw(m_vulkanCommandBuffer, lines[i].numVertices, 1, 0, 0);
+	}
 
 	vkCmdEndRenderPass(m_vulkanCommandBuffer);
 
@@ -1414,7 +1482,7 @@ void VulkanInstance::Destroy()
     // Destruction phase
 
     // Destroy pipeline
-    vkDestroyPipeline(m_vulkanDevice, m_vulkanPipeline, NULL);
+    vkDestroyPipeline(m_vulkanDevice, m_vulkanPipeline[0], NULL);
     vkDestroyPipelineCache(m_vulkanDevice, m_vulkanPipelineCache, NULL);
 
     for (int i = 0; i < 3; ++i)
@@ -1521,7 +1589,7 @@ void VulkanInstance::PerThreadCode(int threadId, float dt)
     VkResult result = vkBeginCommandBuffer(m_commandBuffers[threadId], &cmdBufBeginInfo);
     assert(result == VK_SUCCESS);
 
-    vkCmdBindPipeline(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline);
+    vkCmdBindPipeline(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[0]);
     vkCmdBindDescriptorSets(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipelineLayout, 0, NUM_DESCRIPTOR_SETS, m_descriptorSets[threadId].data(), 0, NULL);
 
     const VkDeviceSize offsets[1] = { 0 };
@@ -2010,7 +2078,7 @@ void VulkanInstance::DrawModels(int threadId, float dt)
 	VkResult result = vkBeginCommandBuffer(m_commandBuffers[threadId], &cmdBufBeginInfo);
 	assert(result == VK_SUCCESS);
 
-	vkCmdBindPipeline(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline);
+	vkCmdBindPipeline(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[0]);
 	vkCmdBindDescriptorSets(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipelineLayout, 0, NUM_DESCRIPTOR_SETS, m_descriptorSets[threadId].data(), 0, NULL);
 
 	const VkDeviceSize offsets[1] = { 0 };
@@ -2038,4 +2106,77 @@ void VulkanInstance::DrawModels(int threadId, float dt)
 
 	result = vkEndCommandBuffer(m_commandBuffers[threadId]);
 	assert(result == VK_SUCCESS);
+}
+
+void VulkanInstance::AddLineBuffer(const std::vector<Vec4> &points)
+{
+	VkBufferCreateInfo bufInfo = {};
+	VkMemoryRequirements memoryRequirements = {};
+	VkMemoryAllocateInfo allocInfo = {};
+	VkResult result = {};
+	VertexBuffer buffer;
+
+	// VERTEX ---------------------------------------------------------
+	// Set buffer info and create vertex buffer per thread
+	bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufInfo.pNext = NULL;
+	bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufInfo.size = sizeof(Vec4) * points.size();
+	bufInfo.queueFamilyIndexCount = 0;
+	bufInfo.pQueueFamilyIndices = NULL;
+	bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufInfo.flags = 0;
+	result = vkCreateBuffer(m_vulkanDevice, &bufInfo, NULL, &buffer.buffer);
+	assert(result == VK_SUCCESS);
+
+	// Get the memory requirements and fill out allocation info
+	vkGetBufferMemoryRequirements(m_vulkanDevice, buffer.buffer, &memoryRequirements);
+
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.pNext = NULL;
+	allocInfo.memoryTypeIndex = 0;
+	allocInfo.allocationSize = memoryRequirements.size;
+
+	bool pass = false;
+
+	// Search memory types to find first index with those properties
+	// TODO: Make this a function
+	uint32_t typeBits = memoryRequirements.memoryTypeBits;
+	for (uint32_t i = 0; i < 32; i++)
+	{
+		if ((typeBits & 1) == 1)
+		{
+			// Type is available, does it match user properties?
+			if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+				allocInfo.memoryTypeIndex = i;
+				pass = true;
+				break;
+			}
+		}
+		typeBits >>= 1;
+	}
+	assert(pass);
+
+	// Allocate vertex buffer memory per thread
+	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.memory);
+	assert(result == VK_SUCCESS);
+	buffer.bufferInfo.range = memoryRequirements.size;
+	buffer.bufferInfo.offset = 0;
+
+	// Map memory and copy over vertex data
+	uint8_t *pData;
+	result = vkMapMemory(m_vulkanDevice, buffer.memory, 0, memoryRequirements.size, 0, (void **)&pData);
+	assert(result == VK_SUCCESS);
+
+	memcpy(pData, points.data(), bufInfo.size);
+
+	vkUnmapMemory(m_vulkanDevice, buffer.memory);
+
+	result = vkBindBufferMemory(m_vulkanDevice, buffer.buffer, buffer.memory, 0);
+	assert(result == VK_SUCCESS);
+
+	buffer.numVertices = points.size();
+
+	lines.push_back(buffer);
 }

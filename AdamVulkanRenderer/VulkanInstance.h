@@ -23,6 +23,8 @@
 #include <mutex>
 #include "Model.h"
 #include "Texture.h"
+#include "Vec3.h"
+#include "Vec4.h"
 
 /* Number of descriptor sets needs to be the same at alloc, */
 /* pipeline layout creation, and descriptor set layout creation */
@@ -56,6 +58,8 @@ public:
     void Destroy();
 
 	void AddModel(Model &model);
+
+	void AddLineBuffer(const std::vector<Vec4> &points);
 
 private:
     // Init and creation functions
@@ -95,7 +99,7 @@ private:
     VkCommandBuffer m_vulkanCommandBuffer;
     VkRenderPass m_vulkanRenderPass;
     VkDescriptorImageInfo m_vulkanImageInfo;
-    VkPipeline m_vulkanPipeline;
+    VkPipeline m_vulkanPipeline[2];
     VkPipelineCache m_vulkanPipelineCache;
     VkPipelineLayout m_vulkanPipelineLayout;
     VkPipelineShaderStageCreateInfo m_vulkanPipelineShaderStageInfo[2];
@@ -189,6 +193,7 @@ private:
 
 	// Loading models
 	std::vector<VertexBuffer> models;
+	std::vector<VertexBuffer> lines;
 };
 
 // Struct for callback data used in multi-threading

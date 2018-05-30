@@ -44,7 +44,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     // END: Get dimensions to pass on to Vulkan
 
     // Are we building for multi-threaded draw?
-    bool multithreaded = true;
+    bool multithreaded = false;
 
     // BEGIN: Vulkan initialization
     VulkanInstance renderer;
@@ -53,14 +53,20 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 
     hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_ADAMVULKANRENDERER));
 
+	std::vector<Vec4> lines = { Vec4(-10, 0, 0, 1), Vec4(10, 0, 0, 1), Vec4(0, 0, 10, 1), Vec4(0, 0, -10, 1), Vec4(0, 10, 0, 1), Vec4(0, -10, 0, 1) };
+
 	if (!multithreaded)
 	{
+		// Enable for unreal imports
+		// TAG UNREAL
 		std::vector<Model> models;
-		OBJFile::LoadFile("murdock.obj", models);
+		//OBJFile::LoadFile("murdock.obj", models);
 		for (int i = 0; i < models.size(); ++i)
 		{
-			renderer.AddModel(models[i]);
+			//renderer.AddModel(models[i]);
 		}
+
+		renderer.AddLineBuffer(lines);
 	}
 
 	// BEGIN: Init frame time
