@@ -1404,15 +1404,12 @@ void VulkanInstance::DrawCube(float dt)
 	}
 	// OBJ MODEL END
 
+	// Draw textured cube
 	const VkDeviceSize offsets[1] = { 0 };
 	vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &m_vertexBuffers[0].buffer, offsets);
 	vkCmdDraw(m_vulkanCommandBuffer, 12 * 3, 1, 0, 0);
 
-	//vkCmdEndRenderPass(m_vulkanCommandBuffer);
-
-	//// Draw lines
-	//vkCmdBeginRenderPass(m_vulkanCommandBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
+	// Draw lines
 	vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[1]);
 
 	for (int i = 0; i < lines.size(); ++i)
@@ -1422,6 +1419,7 @@ void VulkanInstance::DrawCube(float dt)
 		vkCmdDraw(m_vulkanCommandBuffer, lines[i].numVertices, 1, 0, 0);
 	}
 
+	// End render pass
 	vkCmdEndRenderPass(m_vulkanCommandBuffer);
 
 	result = vkEndCommandBuffer(m_vulkanCommandBuffer);
