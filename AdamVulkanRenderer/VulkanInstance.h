@@ -25,6 +25,7 @@
 #include "Texture.h"
 #include "Vec3.h"
 #include "Vec4.h"
+#include "Camera.h"
 
 /* Number of descriptor sets needs to be the same at alloc, */
 /* pipeline layout creation, and descriptor set layout creation */
@@ -82,11 +83,15 @@ private:
     // Uniform buffer update inside draw
     void UpdateUniformBuffer(int threadNum, float dt);
 
+	void UpdateUniformBufferForDebugCamera(int threadNum, float dt);
+
     // Init buffers for multithreaded
     void InitMultithreaded();
 
 	void VulkanInstance::DrawModels(int threadId, float dt);
 	Texture texture;
+
+	Camera camera[2];
 
     // Persistent members required for rendering
     VkInstance m_vulkanInstance;

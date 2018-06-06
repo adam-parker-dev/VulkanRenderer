@@ -15,6 +15,25 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
     assert(width);
     assert(height);
 
+	camera[0] = Camera();
+	camera[0].fov = glm::radians(45.0f);
+	camera[0].aspect = static_cast<float>(width) / static_cast<float>(height);
+	camera[0].nearPlane = 0.1f;
+	camera[0].farPlane = 10000.0f;
+	camera[0].center = Vec3(0, 0, -100);
+	camera[0].eye = Vec3(0, 0, 0);
+	//camera[0].eye = Vec3(0, 0, 0);
+	camera[0].up = Vec3(0, 1, 0);
+
+	camera[1] = Camera();
+	camera[1].fov = glm::radians(45.0f);
+	camera[1].aspect = static_cast<float>(width) / static_cast<float>(height);
+	camera[1].nearPlane = 0.1f;
+	camera[1].farPlane = 10000.0f;
+	camera[1].center = Vec3(0, 0, 0);
+	camera[1].eye = Vec3(100, 50, 100);
+	camera[1].up = Vec3(0, 1, 0);
+
     m_windowWidth = width;
     m_windowHeight = height;
     
@@ -54,6 +73,14 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
         CreateUniformBuffer(0);
         InitVertexBuffer();
     }
+
+	// Debug clustered frustum
+	std::vector<Vec4> clusteredFrustum;
+	camera[0].SubdivideFrustum(clusteredFrustum, 10, 10, 5, 5);
+	std::vector<Vec4> lineList;
+	camera[0].ConstructDebugLineList(clusteredFrustum, lineList, 5, 5, 10);
+	AddLineBuffer(lineList);
+
 }
 
 // Initialize a Vulkan instance
@@ -736,16 +763,52 @@ void VulkanInstance::CreateUniformBuffer(int threadNum)
     m_uniformBuffers[threadNum].bufferInfo.range = sizeof(MVP);
 }
 
+void VulkanInstance::UpdateUniformBufferForDebugCamera(int threadNum, float dt)
+{
+	glm::mat4 Projection;
+	glm::mat4 View;
+	glm::mat4 Clip;
+	glm::mat4 MVP;
+
+	Projection = glm::perspective(camera[1].fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), camera[1].nearPlane, camera[1].farPlane);
+
+	View = glm::lookAt(glm::vec3(camera[1].eye.x, camera[1].eye.y, camera[1].eye.z),
+		glm::vec3(camera[1].center.x, camera[1].center.y, camera[1].center.z),
+		glm::vec3(camera[1].up.x, camera[1].up.y, camera[1].up.z));
+
+	glm::mat4 CameraMatrix = glm::lookAt(glm::vec3(camera[0].eye.x, camera[0].eye.y, camera[0].eye.z),
+		glm::vec3(camera[0].center.x, camera[0].center.y, camera[0].center.z),
+		glm::vec3(camera[0].up.x, camera[0].up.y, camera[0].up.z));
+
+	// Need to invert Y and clip Z axis due to the Vulkan layout.
+	Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, -1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.5f, 0.0f,
+		0.0f, 0.0f, 0.5f, 1.0f);
+
+	MVP = Clip * Projection * View * CameraMatrix;
+
+	// Search memory types to find first index with those properties
+	VkMemoryRequirements memoryRequirements;
+	vkGetBufferMemoryRequirements(m_vulkanDevice, m_uniformBuffers[threadNum].buffer, &memoryRequirements);
+
+	uint8_t *pData;
+	VkResult result = vkMapMemory(m_vulkanDevice, m_uniformBuffers[threadNum].memory, 0, memoryRequirements.size, 0, (void **)&pData);
+	assert(result == VK_SUCCESS);
+
+	memcpy(pData, (const void *)&MVP[0][0], sizeof(MVP));
+
+	vkUnmapMemory(m_vulkanDevice, m_uniformBuffers[threadNum].memory);
+}
+
 void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 {
-    float fov = glm::radians(45.0f);
-
     glm::mat4 Projection;
     glm::mat4 View;    
     glm::mat4 Clip;
     glm::mat4 MVP;
 
-    Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 10000.0f);
+    Projection = glm::perspective(camera[0].fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), camera[0].nearPlane, camera[0].farPlane);
 
 	// TAG: UNREAL
 	// For Unreal imports 
@@ -753,9 +816,9 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
     //    glm::vec3(0, 0, 0),
     //    glm::vec3(0, 1, 0));
 
-	View = glm::lookAt(glm::vec3(0, 5, 10),
-	    glm::vec3(0, 0, 0),
-	    glm::vec3(0, 1, 0));
+	View = glm::lookAt(glm::vec3(camera[0].eye.x, camera[0].eye.y, camera[0].eye.z),
+	    glm::vec3(camera[0].center.x, camera[0].center.y, camera[0].center.z),
+	    glm::vec3(camera[0].up.x, camera[0].up.y, camera[0].up.z));
    	
     m_modelMatrices[threadNum] = glm::rotate(m_modelMatrices[threadNum], 1.0f * dt, glm::vec3(0, 1, 0));
     m_modelMatrices[threadNum][3][0] = (float)(threadNum * 3);
@@ -1411,6 +1474,8 @@ void VulkanInstance::DrawCube(float dt)
 
 	// Draw lines
 	vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[1]);
+
+	UpdateUniformBufferForDebugCamera(0, dt);
 
 	for (int i = 0; i < lines.size(); ++i)
 	{

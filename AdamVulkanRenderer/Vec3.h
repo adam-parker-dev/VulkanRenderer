@@ -12,7 +12,7 @@ public:
     Vec3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
     Vec3(const Vec3 &_vec) : x(_vec.x), y(_vec.y), z(_vec.z) {}
 
-    float& operator[](std::size_t index) 
+    float& operator[](int index) 
     { 
         switch (index)
         {
@@ -25,7 +25,7 @@ public:
         }
     }
 
-    float operator[](std::size_t index) const 
+    float operator[](int index) const 
     { 
         switch (index)
         {

@@ -180,6 +180,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AdamVulkanRenderer.cpp" />
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Mat4.cpp" />
     <ClCompile Include="OBJFile.cpp" />
     <ClCompile Include="Shader.cpp" />
