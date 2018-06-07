@@ -28,6 +28,9 @@ void Camera::SubdivideFrustum(std::vector<Vec4> &pointList, int zSlices, float s
 	}
 }
 
+// This function is a little overkill because it creates a line segment between each mini-frusta.
+// Could get away with just a cross section of the entire frustum along the different axes.
+// However, this allows me to possibly highlight individual mini-frusta in the future.
 void Camera::ConstructDebugLineList(const std::vector<Vec4> &frustumGrid, std::vector<Vec4> &lineOutput, int xSlices, int ySlices, int zSlices)
 {
 	for (int z = 0; z < zSlices; ++z)
@@ -47,20 +50,46 @@ void Camera::ConstructDebugLineList(const std::vector<Vec4> &frustumGrid, std::v
 
 	for (int z = 0; z < zSlices; ++z)
 	{
-		int pointsProcessed = 0;
-		for (int x = 0; x < xSlices; ++x)
+		for (int y = 0; y < ySlices; ++y)
 		{
-			lineOutput.push_back(frustumGrid[z * xSlices * ySlices + x * xSlices]);
-			++pointsProcessed;
-			int y = 1;
-			for (; y < ySlices - 1; ++y)
+			lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y]);
+			int x = 1;
+			for (; x < xSlices - 1; ++x)
 			{
-				lineOutput.push_back(frustumGrid[z * xSlices * ySlices + x * xSlices + y]);
-				lineOutput.push_back(frustumGrid[z * xSlices * ySlices + x * xSlices + y]);
-				++pointsProcessed;
+				lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y + xSlices * x]);
+				lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y + xSlices * x]);
 			}
-			lineOutput.push_back(frustumGrid[z * xSlices * ySlices + x * xSlices + y]);
-			++pointsProcessed;
+			lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y + xSlices * x]);
+		}
+	}
+
+	for (int z = 0; z < zSlices-1; ++z)
+	{
+		for (int y = 0; y < ySlices; ++y)
+		{
+			lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y]);
+			int x = 1;
+			for (; x < xSlices - 1; ++x)
+			{
+				lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y + xSlices * x]);
+				lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y + xSlices * x]);
+			}
+			lineOutput.push_back(frustumGrid[z * xSlices * ySlices + y + xSlices * x]);
+		}
+	}
+
+	for (int x = 0; x < xSlices; ++x)
+	{
+		for (int y = 0; y < ySlices; ++y)
+		{
+			lineOutput.push_back(Vec4(0, 0, 0, 1));
+			int z = 0;
+			for (; z < zSlices - 1; ++z)
+			{
+				lineOutput.push_back(frustumGrid[(z * xSlices * ySlices) + x * xSlices + y]);
+				lineOutput.push_back(frustumGrid[(z * xSlices * ySlices) + x * xSlices + y]);
+			}
+			lineOutput.push_back(frustumGrid[(z * xSlices * ySlices) + x * xSlices + y]);
 		}
 	}
 }

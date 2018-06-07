@@ -30,8 +30,8 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 	camera[1].aspect = static_cast<float>(width) / static_cast<float>(height);
 	camera[1].nearPlane = 0.1f;
 	camera[1].farPlane = 10000.0f;
-	camera[1].center = Vec3(0, 0, 0);
-	camera[1].eye = Vec3(100, 50, 100);
+	camera[1].center = Vec3(0, 0, -50);
+	camera[1].eye = Vec3(100, 50, 50);
 	camera[1].up = Vec3(0, 1, 0);
 
     m_windowWidth = width;
@@ -76,9 +76,9 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 
 	// Debug clustered frustum
 	std::vector<Vec4> clusteredFrustum;
-	camera[0].SubdivideFrustum(clusteredFrustum, 10, 10, 5, 5);
+	camera[0].SubdivideFrustum(clusteredFrustum, 5, 20, 5, 5);
 	std::vector<Vec4> lineList;
-	camera[0].ConstructDebugLineList(clusteredFrustum, lineList, 5, 5, 10);
+	camera[0].ConstructDebugLineList(clusteredFrustum, lineList, 5, 5, 5);
 	AddLineBuffer(lineList);
 
 }
