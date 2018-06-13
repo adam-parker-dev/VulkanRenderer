@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vulkan.h>
 #include <assert.h>
+#include "VulkanCommon.h"
 
 bool Texture::ReadPPM(std::string filename, int &width, int &height, VkDeviceSize rowPitch, unsigned char *data)
 {
@@ -92,19 +93,13 @@ bool Texture::ReadPPM(std::string filename, int &width, int &height, VkDeviceSiz
 	return true;
 }
 
-void Texture::InitTexture(const VkDevice &device, 
+void Texture::InitTextureFromFile(const VkDevice &device, 
 	const VkPhysicalDevice &physical, 
-	const VkPhysicalDeviceMemoryProperties &memProps, 
 	const VkCommandBuffer &cmdBuf,
-	const VkQueue &queue)
+	const VkQueue &queue,
+	const std::string &filename)
 {	
-	VkDeviceMemory stagingImage;
-	VkImage	stagingMemory;
 	VkResult result;
-	bool pass;
-
-	std::string filename;
-	filename.append("adam.ppm");
 
 	int width = 0;
 	int height = 0;
@@ -156,7 +151,6 @@ void Texture::InitTexture(const VkDevice &device,
 
 	VkMemoryRequirements mem_reqs;
 
-
 	result = vkCreateImage(device, &imageCreateInfo, NULL, &mappableImage);
 	assert(result == VK_SUCCESS);
 
@@ -165,24 +159,7 @@ void Texture::InitTexture(const VkDevice &device,
 
 	mem_alloc.allocationSize = mem_reqs.size;
 
-	pass = false;
-
-	uint32_t typeBits = mem_reqs.memoryTypeBits;
-	uint32_t requirementsMask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
-	{
-		if ((typeBits & 1) == 1)
-		{
-			if ((memProps.memoryTypes[i].propertyFlags & requirementsMask) == requirementsMask)
-			{
-				mem_alloc.memoryTypeIndex = i;
-				pass = true;
-			}
-		}
-		typeBits >>= 1;
-	}
-
-	assert(pass && "No mappable, coherent memory");
+	assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
 
 	result = vkAllocateMemory(device, &mem_alloc, NULL, &(mappableMemory));
 	assert(result == VK_SUCCESS);
@@ -256,17 +233,10 @@ void Texture::InitTexture(const VkDevice &device,
 	} while (result == VK_TIMEOUT);
 	assert(result == VK_SUCCESS);
 
-
 	vkDestroyFence(device, cmdFence, NULL);
 
 	result = vkMapMemory(device, mappableMemory, 0, mem_reqs.size, 0, &data);
 	assert(result == VK_SUCCESS);
-
-	//result = vkAllocateMemory(m_vulkanDevice, &mem_alloc, NULL, &(mappableMemory));
-	//assert(result == VK_SUCCESS);
-
-	//result = vkBindImageMemory(device, mappableImage, mappableMemory, 0);
-	//assert(result == VK_SUCCESS);
 
 	if (!ReadPPM(filename.c_str(), width, height, layout.rowPitch, (unsigned char*)data))
 	{
@@ -319,10 +289,6 @@ void Texture::InitTexture(const VkDevice &device,
 
 		vkCmdPipelineBarrier(cmdBuf, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
 		//end set image layout
-
-
-		stagingImage = VK_NULL_HANDLE;
-		stagingMemory = VK_NULL_HANDLE;
 	}
 	else
 	{
@@ -338,24 +304,7 @@ void Texture::InitTexture(const VkDevice &device,
 
 		mem_alloc.allocationSize = mem_reqs.size;
 
-		pass = false;
-
-		typeBits = mem_reqs.memoryTypeBits;
-		requirementsMask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-		for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
-		{
-			if ((typeBits & 1) == 1)
-			{
-				if ((memProps.memoryTypes[i].propertyFlags & requirementsMask) == requirementsMask)
-				{
-					mem_alloc.memoryTypeIndex = i;
-					pass = true;
-				}
-			}
-			typeBits >>= 1;
-		}
-
-		assert(pass);
+		assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
 
 		result = vkAllocateMemory(device, &mem_alloc, NULL, &this->memory);
 		assert(result == VK_SUCCESS);
@@ -461,9 +410,6 @@ void Texture::InitTexture(const VkDevice &device,
 
 		vkCmdPipelineBarrier(cmdBuf, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
 		// end set image layout
-
-		stagingImage = mappableImage;
-		stagingMemory = mappableMemory;
 	}
 
 	VkImageViewCreateInfo viewInfo = {};
@@ -509,4 +455,146 @@ void Texture::InitTexture(const VkDevice &device,
 	result = vkCreateSampler(device, &samplerCreateInfo, NULL, &this->sampler);
 	assert(result == VK_SUCCESS);
 	// ENd create sampler	
+}
+
+void Texture::InitTexture(const VkDevice &device, const VkPhysicalDevice &physical, const VkCommandBuffer &cmdBuf, const VkQueue &queue, VkImageType type, VkFormat format, bool writeable, int width, int height, int depth)
+{
+	VkResult result;
+
+	VkFormatProperties formatProps;
+	vkGetPhysicalDeviceFormatProperties(physical, format, &formatProps);
+
+	VkFormatFeatureFlags allFeatures = (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
+	bool needStaging = ((formatProps.linearTilingFeatures & allFeatures) != allFeatures) ? true : false;
+
+	if (needStaging)
+	{
+		assert((formatProps.optimalTilingFeatures & allFeatures) == allFeatures);
+	}
+
+	// TODO: Test 2d texture limits
+	// If imageType is VK_IMAGE_TYPE_3D, extent.width, extent.height and extent.depth must be less than or equal to VkPhysicalDeviceLimits::maxImageDimension3D, 
+	// or VkImageFormatProperties::maxExtent.width / height / depth(as returned by vkGetPhysicalDeviceImageFormatProperties with format, imageType, 
+	// tiling, usage, and flags equal to those in this structure) - whichever is higher
+
+	// begin init of image
+	VkImageCreateInfo imageCreateInfo = {};
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateInfo.pNext = NULL;
+	imageCreateInfo.imageType = type;
+	imageCreateInfo.format = format;
+	imageCreateInfo.extent.width = width;
+	imageCreateInfo.extent.height = height;
+	imageCreateInfo.extent.depth = depth;
+	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.samples = NUM_SAMPLES;
+	imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	imageCreateInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT;
+	imageCreateInfo.queueFamilyIndexCount = 0;
+	imageCreateInfo.pQueueFamilyIndices = NULL;
+	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (type == VkImageType::VK_IMAGE_TYPE_3D)
+	{
+		imageCreateInfo.flags = VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT_KHR;
+	}
+	else
+	{
+		imageCreateInfo.flags = 0;
+	}
+	
+	VkMemoryAllocateInfo mem_alloc = {};
+	mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	mem_alloc.pNext = NULL;
+	mem_alloc.allocationSize = 0;
+	mem_alloc.memoryTypeIndex = 0;
+
+	VkImage mappableImage;
+	VkDeviceMemory mappableMemory;
+	VkMemoryRequirements mem_reqs;
+
+	result = vkCreateImage(device, &imageCreateInfo, NULL, &mappableImage);
+	assert(result == VK_SUCCESS);
+
+	vkGetImageMemoryRequirements(device, mappableImage, &mem_reqs);
+	assert(result == VK_SUCCESS);
+
+	mem_alloc.allocationSize = mem_reqs.size;
+
+	assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
+
+	result = vkAllocateMemory(device, &mem_alloc, NULL, &(mappableMemory));
+	assert(result == VK_SUCCESS);
+
+	result = vkBindImageMemory(device, mappableImage, mappableMemory, 0);
+	assert(result == VK_SUCCESS);
+
+	// Begin set image layout
+	VkImageMemoryBarrier imageMemoryBarrier;
+	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imageMemoryBarrier.pNext = NULL;
+	imageMemoryBarrier.srcAccessMask = 0;
+	imageMemoryBarrier.dstAccessMask = 0;
+	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.image = mappableImage;
+	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+	imageMemoryBarrier.subresourceRange.levelCount = 1;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+	imageMemoryBarrier.subresourceRange.layerCount = 1;
+
+	imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+
+	VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+	vkCmdPipelineBarrier(cmdBuf, src_stages, dest_stages, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
+	// end set image layout
+
+	result = vkEndCommandBuffer(cmdBuf);
+	assert(result == VK_SUCCESS);
+	const VkCommandBuffer cmdBufs[] = { cmdBuf };
+	VkFenceCreateInfo fenceInfo;
+	VkFence cmdFence;
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.pNext = NULL;
+	fenceInfo.flags = 0;
+	vkCreateFence(device, &fenceInfo, NULL, &cmdFence);
+
+	VkSubmitInfo submitInfo[1] = {};
+	submitInfo[0].pNext = NULL;
+	submitInfo[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo[0].waitSemaphoreCount = 0;
+	submitInfo[0].pWaitSemaphores = NULL;
+	submitInfo[0].pWaitDstStageMask = NULL;
+	submitInfo[0].commandBufferCount = 1;
+	submitInfo[0].pCommandBuffers = cmdBufs;
+	submitInfo[0].signalSemaphoreCount = 0;
+	submitInfo[0].pSignalSemaphores = NULL;
+
+	result = vkQueueSubmit(queue, 1, submitInfo, cmdFence);
+	assert(result == VK_SUCCESS);
+
+	VkImageSubresource subres = {};
+	subres.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subres.mipLevel = 0;
+	subres.arrayLayer = 0;
+
+	VkSubresourceLayout layout;
+	void *data;
+
+	/* Get the subresource layout so we know what the row pitch is */
+	vkGetImageSubresourceLayout(device, mappableImage, &subres, &layout);
+
+	do
+	{
+		result = vkWaitForFences(device, 1, &cmdFence, VK_TRUE, FENCE_TIMEOUT);
+	} while (result == VK_TIMEOUT);
+	assert(result == VK_SUCCESS);
+
+	vkDestroyFence(device, cmdFence, NULL);
 }

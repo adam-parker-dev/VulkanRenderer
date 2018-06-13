@@ -173,6 +173,7 @@
     <ClInclude Include="Triangle.h" />
     <ClInclude Include="Vec3.h" />
     <ClInclude Include="Vec4.h" />
+    <ClInclude Include="VulkanCommon.h" />
     <ClInclude Include="VulkanInstance.h" />
   </ItemGroup>
   <ItemGroup>

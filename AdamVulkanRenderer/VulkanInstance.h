@@ -111,7 +111,6 @@ private:
     VkPipelineShaderStageCreateInfo m_vulkanPipelineShaderStageInfo[2];
 
     // Property checks		
-    VkPhysicalDeviceMemoryProperties m_vulkanDeviceMemoryProperties;
     std::vector<VkQueueFamilyProperties> m_vulkanQueueFamilyPropertiesVector;
 
     // Index into graphics queue and buffer in swap chain
