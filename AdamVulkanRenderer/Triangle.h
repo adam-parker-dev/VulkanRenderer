@@ -1,7 +1,6 @@
-#ifndef _TRIANGLE_H_
-#define _TRIANGLE_H_
+#pragma once
 
-class Triangle
+struct Triangle
 {
     // Triangle vertices constants
 public:
@@ -27,5 +26,3 @@ public:
     }
     ~Triangle() {}
 };
-
-#endif

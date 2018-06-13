@@ -14,12 +14,13 @@ public:
 		const VkPhysicalDeviceMemoryProperties &props,
 		const VkCommandBuffer &cmdBuf,
 		const VkQueue &queue);
+
 	VkImageView view;
 	VkSampler sampler;
+
 private:
 	bool ReadPPM(std::string filename, int &width, int &height, VkDeviceSize rowPitch, unsigned char *data);
 
-	
 	VkImage image;
 	VkImageLayout imageLayout;
 	VkDeviceMemory memory;

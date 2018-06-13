@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include <math.h>
 #include "Camera.h"
 
 #define PI (3.141592653589793)
@@ -12,15 +11,15 @@ void Camera::SubdivideFrustum(std::vector<Vec4> &pointList, int zSlices, float s
 		float halfWidth = z * tan(((fov*aspect) / 2.0f)); // assumes radians
 		float halfHeight = z * tan((fov / 2.0f));
 
-		float xstep = 2.0f * halfWidth / xSlices;
-		float ystep = 2.0f * halfHeight / ySlices;
+		float xinterval = 2.0f * halfWidth / xSlices;
+		float yinterval = 2.0f * halfHeight / ySlices;
 
 		for (int j = 0; j < xSlices; ++j)
 		{
 			for (int k = 0; k < ySlices; ++k)
 			{
-				float x = -halfWidth + j * xstep;
-				float y = -halfHeight + k * ystep;
+				float x = -halfWidth + j * xinterval;
+				float y = -halfHeight + k * yinterval;
 				Vec4 frustumPoint = Vec4(x, y, -z, 1);
 				pointList.push_back(frustumPoint);
 			}

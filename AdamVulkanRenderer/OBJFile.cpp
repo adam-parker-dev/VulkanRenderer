@@ -21,9 +21,6 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
     // Vertices are stored in a counter-clockwise order by default
     // https://en.wikipedia.org/wiki/Wavefront_.obj_file
     // http://stackoverflow.com/questions/23723993/converting-quadriladerals-in-an-obj-file-into-triangles
-    //std::vector<int> vertexIndices;
-    //std::vector<int> normalsIndices;
-    //std::vector<int> uvIndices;
     std::map<std::pair<int, int>, int> vertexNormalPair;
 	Model model;
 
@@ -40,7 +37,7 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
 			{
 				continue;
 			}
-            string::iterator lastChar = line.end() - 1;
+            std::string::iterator lastChar = line.end() - 1;
             while (*lastChar == ' ' || *lastChar == '\r')
             {
                 line.pop_back();
@@ -72,8 +69,8 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
                                 uvs.push_back(static_cast<float>(atof(token.c_str())));
                                 }*/
             }
+
             // Import the normals
-            // TODO: Fixing floating point imprecision from double->float convert
             else if (line.find("vn") != std::string::npos)
             {
                 Vec3 entry;
@@ -87,16 +84,15 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
                     if (!token.empty())
                     {                        
                         const char* tokenString = token.c_str();
-                        entry[index] = std::strtod(tokenString, 0);
-                        //model.fileNormals.push_back(entry[index]);
+                        entry[index] = std::strtof(tokenString, 0);
                         ++index;
                     }
                     line = line.substr(position + 1, line.size() - position);
                 }
                 normals.push_back(entry);
             }
+
             // Import the vertices
-            // TODO: Fixing floating point imprecision from double->float convert
             else if (line.find("v ") != std::string::npos)
             {
                 Vec3 entry;
@@ -110,8 +106,7 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
                     if (!token.empty())
                     {                        
                         const char* tokenString = token.c_str();
-                        entry[index] = std::strtod(tokenString, 0);
-                        //model.fileVertices.push_back(entry[index]);                       
+                        entry[index] = std::strtof(tokenString, 0);
                         ++index;
                     }
                     line = line.substr(position + 1, line.size() - position);
@@ -120,7 +115,6 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
             }
 
             // Import the faces via indices for vertices, normals, and uvs
-            // TODO: Fixing floating point imprecision from double->float convert
             else if (line.find("f ") != std::string::npos)
             {               
                 // find the first entry
@@ -150,15 +144,12 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
                         // UV index
                         token = token.substr(slashPosition + 1, token.size() - slashPosition);
                         slashPosition = token.find('/') ;
-                        int uvindex = atoi(token.substr(0, slashPosition).c_str()) - 1;
+                        //int uvindex = atoi(token.substr(0, slashPosition).c_str()) - 1;
                         //uvIndices.push_back(uvindex);
 
                         // Normal index
                         token = token.substr(slashPosition + 1, token.size() - slashPosition);
                         int nindex = atoi(token.c_str()) - 1;
-                        //normalsIndices.push_back(nindex);
-
-                        // TODO: Implement smooth groups import.
 
                         // If we have normals, store vertex/normal pairs
                         if (!normals.empty())
@@ -243,8 +234,6 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
                                 lastLine = true;
                             }
                         }
-
-                        //vertexIndices.push_back(vindex);
                     }
                 }
             }
@@ -257,7 +246,7 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
     // Requires some sort of flag in the render pipeline
     if (normals.empty())
     {
-        for (int i = 0; i < vertices.size(); ++i)
+        for (unsigned int i = 0; i < vertices.size(); ++i)
         {
             model.fileVertices.push_back(vertices[i][0]);
             model.fileVertices.push_back(vertices[i][1]);
@@ -269,9 +258,10 @@ void OBJFile::LoadFile(std::string fileName, std::vector<Model> &models)
     }
 
     // Need to do find replace \r to \n for windows->android(linux)
-    size_t pos;
+	// TODO: Re-enable when porting to Android
+/*    size_t pos;
     while ((pos = fileData.find('\r')) != std::string::npos)
     {
         fileData.replace(pos, std::string("\r").length(), "\n");
-    }            
+    }    */        
 }

@@ -1,7 +1,6 @@
-#ifndef _VEC_4_H_
-#define _VEC_4_H_
+#pragma once
 
-class Vec4
+struct Vec4
 {
 public:
     float x;
@@ -13,5 +12,3 @@ public:
     Vec4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
     Vec4(const Vec4 &_vec) : x(_vec.x), y(_vec.y), z(_vec.z), w(_vec.w) {}
 };
-
-#endif

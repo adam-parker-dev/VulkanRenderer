@@ -1,5 +1,4 @@
-#ifndef _MANAGER_H_
-#define _MANAGER_H_
+#pragma once
 
 class Manager
 {
@@ -8,5 +7,3 @@ public:
     virtual void Update(float dt) = 0;
     virtual void Destroy() = 0;
 };
-
-#endif

@@ -19,9 +19,6 @@
     <Filter Include="Source Files\Tools">
       <UniqueIdentifier>{0d9ea2f6-bc6a-461f-b390-ac5d8e55e3f3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Vulkan">
-      <UniqueIdentifier>{7c0b1942-7728-491b-991f-d99467683d32}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\Tools">
       <UniqueIdentifier>{2985868b-3ec0-4c4c-97e6-79a8b3a5c8d5}</UniqueIdentifier>
     </Filter>
@@ -54,12 +51,6 @@
     <ClInclude Include="Cube.h">
       <Filter>Source Files\Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="AdamVulkanRenderer.h">
-      <Filter>Header Files\Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Simulation.h">
-      <Filter>Header Files\Simulation</Filter>
-    </ClInclude>
     <ClInclude Include="Manager.h">
       <Filter>Header Files\Simulation</Filter>
     </ClInclude>
@@ -84,9 +75,6 @@
     <ClInclude Include="OBJFile.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer.h">
-      <Filter>Header Files\Simulation</Filter>
-    </ClInclude>
     <ClInclude Include="Texture.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
@@ -106,12 +94,6 @@
     </ClCompile>
     <ClCompile Include="AdamVulkanRenderer.cpp">
       <Filter>Source Files\Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Simulation.cpp">
-      <Filter>Source Files\Simulation</Filter>
-    </ClCompile>
-    <ClCompile Include="Mat4.cpp">
-      <Filter>Source Files\Tools</Filter>
     </ClCompile>
     <ClCompile Include="OBJFile.cpp">
       <Filter>Source Files\Tools</Filter>

@@ -11,6 +11,7 @@
 #include <unistd.h>
 #endif
 
+// Force GLM to configure for Vulkan
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_LEFT_HANDED
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -31,10 +32,8 @@
 /* pipeline layout creation, and descriptor set layout creation */
 #define NUM_DESCRIPTOR_SETS 1
 
-// Various constants for Vulkan
+// Fence timeout constant for Vulkan fences
 #define FENCE_TIMEOUT 100000000
-#define NUM_VIEWPORTS 1
-#define NUM_SCISSORS NUM_VIEWPORTS
 
 // Forward declaration for multi-threading callback data structure
 struct CallbackData;
@@ -58,8 +57,8 @@ public:
     // Release memory
     void Destroy();
 
+	// Model and line drawing for .obj files and debug drawing
 	void AddModel(Model &model);
-
 	void AddLineBuffer(const std::vector<Vec4> &points);
 
 private:
@@ -88,9 +87,11 @@ private:
     // Init buffers for multithreaded
     void InitMultithreaded();
 
-	void VulkanInstance::DrawModels(int threadId, float dt);
-	Texture texture;
+	// Get memory types for Vulkan
+	bool GetMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlagBits memoryPropretyBit, uint32_t &memoryTypeIndex);
 
+	// Texture and camera data
+	Texture texture;
 	Camera camera[2];
 
     // Persistent members required for rendering
@@ -180,6 +181,7 @@ private:
     // Need to allocate buffers per thread or there
     // is a race for access  to common memory
     // Causes flashing as a result of race condition
+	// Could use locks, but this is lockless! :D
     VkCommandBuffer m_commandBuffers[3];
     VkCommandPool m_commandPools[3];
     HANDLE m_threadHandles[3];

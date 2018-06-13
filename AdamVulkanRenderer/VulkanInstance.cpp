@@ -15,16 +15,24 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
     assert(width);
     assert(height);
 
+	m_windowWidth = width;
+	m_windowHeight = height;
+
 	camera[0] = Camera();
 	camera[0].fov = glm::radians(45.0f);
 	camera[0].aspect = static_cast<float>(width) / static_cast<float>(height);
 	camera[0].nearPlane = 0.1f;
 	camera[0].farPlane = 10000.0f;
 	camera[0].center = Vec3(0, 0, -100);
-	camera[0].eye = Vec3(0, 0, 0);
-	//camera[0].eye = Vec3(0, 0, 0);
+	camera[0].eye = Vec3(0, 2, 10);
 	camera[0].up = Vec3(0, 1, 0);
 
+	// For Unreal .obj imports 
+	//View = glm::lookAt(glm::vec3(0, 500, 1000),
+	//    glm::vec3(0, 0, 0),
+	//    glm::vec3(0, 1, 0));
+
+	// Debug camera for view frustum
 	camera[1] = Camera();
 	camera[1].fov = glm::radians(45.0f);
 	camera[1].aspect = static_cast<float>(width) / static_cast<float>(height);
@@ -34,9 +42,7 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 	camera[1].eye = Vec3(100, 50, 50);
 	camera[1].up = Vec3(0, 1, 0);
 
-    m_windowWidth = width;
-    m_windowHeight = height;
-    
+	// Vulkan setup
     InitInstance();
     EnumerateDevices();
     InitSurface(hwnd, inst);
@@ -44,12 +50,6 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
     InitCommandBuffer();
     InitSwapChain();
     CreateDepthBuffer();
-
-	texture.InitTexture(m_vulkanDevice, m_vulkanDeviceVector[0], m_vulkanDeviceMemoryProperties, m_vulkanCommandBuffer, m_vulkanQueue);
-	m_vulkanImageInfo.imageView = texture.view;
-	m_vulkanImageInfo.sampler = texture.sampler;
-	m_vulkanImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
     CreateDescriptorLayouts();
     AllocateDescriptorSets();
     InitRenderPass();
@@ -81,6 +81,11 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 	camera[0].ConstructDebugLineList(clusteredFrustum, lineList, 5, 5, 5);
 	AddLineBuffer(lineList);
 
+	// Create texture for cube
+	texture.InitTexture(m_vulkanDevice, m_vulkanDeviceVector[0], m_vulkanDeviceMemoryProperties, m_vulkanCommandBuffer, m_vulkanQueue);
+	m_vulkanImageInfo.imageView = texture.view;
+	m_vulkanImageInfo.sampler = texture.sampler;
+	m_vulkanImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 }
 
 // Initialize a Vulkan instance
@@ -188,7 +193,7 @@ void VulkanInstance::InitSurface(HWND hwnd, HINSTANCE inst)
         vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkanDeviceVector[0], i, m_vulkanSurface, &supportsPresent[i]);
     }
 
-    // Search for a graphics and a present queue in the array of queue
+    // Search for graphics and a present queue in the array of queue
     // families, try to find one that supports both
     uint32_t graphicsQueueNodeIndex = UINT32_MAX;
     uint32_t presentQueueNodeIndex = UINT32_MAX;
@@ -555,10 +560,13 @@ void VulkanInstance::InitSwapChain()
 // Information found in step 6 of VulkanAPI samples
 void VulkanInstance::CreateDepthBuffer()
 {
-    VkImageCreateInfo imageInfo = {};
+	// Set format for depth buffer
     m_depthBuffer.format = VK_FORMAT_D16_UNORM;
+
     VkFormatProperties props;
     vkGetPhysicalDeviceFormatProperties(m_vulkanDeviceVector[0], m_depthBuffer.format, &props);
+
+	VkImageCreateInfo imageInfo = {};
     if (props.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
     {
         imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
@@ -622,24 +630,9 @@ void VulkanInstance::CreateDepthBuffer()
     vkGetImageMemoryRequirements(m_vulkanDevice, m_depthBuffer.image, &memoryRequirements);
 
     memAlloc.allocationSize = memoryRequirements.size;
-    bool pass = false;
-    uint32_t typeBits = memoryRequirements.memoryTypeBits;
 
-    for (uint32_t i = 0; i < 32; i++)
-    {
-        if ((typeBits & 1) == 1)
-        {
-            // Type is available, does it match user properties?
-            if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags & 0) == 0)
-            {
-                memAlloc.memoryTypeIndex = i;
-                pass = true;
-                break;
-            }
-        }
-        typeBits >>= 1;
-    }
-    assert(pass);
+	// Search memory types to find first index with those properties
+	assert(GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(0), memAlloc.memoryTypeIndex));
 
     //Allocate memory
     result = vkAllocateMemory(m_vulkanDevice, &memAlloc, NULL, &m_depthBuffer.memory);
@@ -679,30 +672,8 @@ void VulkanInstance::CreateDepthBuffer()
 // Information found in step 7 of VulkanAPI samples
 void VulkanInstance::CreateUniformBuffer(int threadNum)
 {
-    float fov = glm::radians(45.0f);
-
-    glm::mat4 Projection;
-    glm::mat4 View;
-    //glm::mat4 Model;
-    glm::mat4 Clip;
+	// For size and initial memory copy (which is fine if it is just garbage)
     glm::mat4 MVP;
-
-    Projection = glm::perspective(fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), 0.1f, 100.0f);
-
-    View = glm::lookAt(glm::vec3(0, 5, 10),
-        glm::vec3(0, 0, 0),
-        glm::vec3(0, -1, 0));
-
-    //Model = glm::mat4(1.0f);
-    m_modelMatrices[threadNum] = glm::mat4(1.0f);
-
-    // Need to invert Y and clip Z axis due to the Vulkan layout.
-    Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, -1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.5f, 0.0f,
-        0.0f, 0.0f, 0.5f, 1.0f);
-
-    MVP = Clip * Projection * View * m_modelMatrices[threadNum];
 
     VkBufferCreateInfo bufferInfo;
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -724,25 +695,9 @@ void VulkanInstance::CreateUniformBuffer(int threadNum)
     allocInfo.pNext = NULL;
     allocInfo.memoryTypeIndex = 0;
     allocInfo.allocationSize = memoryRequirements.size;
-    bool pass = false;
 
-    // Search memory types to find first index with those properties
-    uint32_t typeBits = memoryRequirements.memoryTypeBits;
-    for (uint32_t i = 0; i < 32; i++)
-    {
-        if ((typeBits & 1) == 1)
-        {
-            // Type is available, does it match user properties?
-            if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-                allocInfo.memoryTypeIndex = i;
-                pass = true;
-                break;
-            }
-        }
-        typeBits >>= 1;
-    }
-    assert(pass);
+	// Search memory types to find first index with those properties
+	assert(GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
 
     result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &m_uniformBuffers[threadNum].memory);
     assert(result == VK_SUCCESS);
@@ -803,18 +758,9 @@ void VulkanInstance::UpdateUniformBufferForDebugCamera(int threadNum, float dt)
 
 void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
 {
-    glm::mat4 Projection;
-    glm::mat4 View;    
-    glm::mat4 Clip;
-    glm::mat4 MVP;
+    glm::mat4 Projection, View, Clip, MVP;
 
     Projection = glm::perspective(camera[0].fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), camera[0].nearPlane, camera[0].farPlane);
-
-	// TAG: UNREAL
-	// For Unreal imports 
-    //View = glm::lookAt(glm::vec3(0, 500, 1000),
-    //    glm::vec3(0, 0, 0),
-    //    glm::vec3(0, 1, 0));
 
 	View = glm::lookAt(glm::vec3(camera[0].eye.x, camera[0].eye.y, camera[0].eye.z),
 	    glm::vec3(camera[0].center.x, camera[0].center.y, camera[0].center.z),
@@ -1093,27 +1039,10 @@ void VulkanInstance::InitVertexBuffer()
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.pNext = NULL;
     allocInfo.memoryTypeIndex = 0;
-
     allocInfo.allocationSize = memoryRequirements.size;
-    bool pass = false;
 
-    // Search memory types to find first index with those properties
-    uint32_t typeBits = memoryRequirements.memoryTypeBits;
-    for (uint32_t i = 0; i < 32; i++)
-    {
-        if ((typeBits & 1) == 1)
-        {
-            // Type is available, does it match user properties?
-            if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-                allocInfo.memoryTypeIndex = i;
-                pass = true;
-                break;
-            }
-        }
-        typeBits >>= 1;
-    }
-    assert(pass);
+	// Search memory types to find first index with those properties
+	assert(GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
 
     result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &m_vertexBuffers[0].memory);
     assert(result == VK_SUCCESS);
@@ -1231,8 +1160,8 @@ void VulkanInstance::InitPipeline()
     vpInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vpInfo.pNext = NULL;
     vpInfo.flags = 0;
-    vpInfo.viewportCount = NUM_VIEWPORTS;
-    vpInfo.scissorCount = NUM_SCISSORS;
+    vpInfo.viewportCount = 1;
+    vpInfo.scissorCount = 1;
     dynamicStateEnables[dynamicStateInfo.dynamicStateCount++] = VK_DYNAMIC_STATE_VIEWPORT;
     dynamicStateEnables[dynamicStateInfo.dynamicStateCount++] = VK_DYNAMIC_STATE_SCISSOR;
     vpInfo.pScissors = NULL;
@@ -1447,17 +1376,17 @@ void VulkanInstance::DrawCube(float dt)
     viewport.maxDepth = (float)1.0f;
     viewport.x = 0;
     viewport.y = 0;
-    vkCmdSetViewport(m_vulkanCommandBuffer, 0, NUM_VIEWPORTS, &viewport);
+    vkCmdSetViewport(m_vulkanCommandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor;
     scissor.extent.width = m_windowWidth;
     scissor.extent.height = m_windowHeight;
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    vkCmdSetScissor(m_vulkanCommandBuffer, 0, NUM_SCISSORS, &scissor);
+    vkCmdSetScissor(m_vulkanCommandBuffer, 0, 1, &scissor);
 
 	// OBJ MODEL BEGIN
-	for (int i = 0; i < models.size(); ++i)
+	for (unsigned int i = 0; i < models.size(); ++i)
 	{
 		const VkDeviceSize offsets[1] = { 0 };
 		vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &models[i].buffer, offsets);
@@ -1477,9 +1406,8 @@ void VulkanInstance::DrawCube(float dt)
 
 	UpdateUniformBufferForDebugCamera(0, dt);
 
-	for (int i = 0; i < lines.size(); ++i)
+	for (unsigned int i = 0; i < lines.size(); ++i)
 	{
-		const VkDeviceSize offsets[1] = { 0 };
 		vkCmdBindVertexBuffers(m_vulkanCommandBuffer, 0, 1, &lines[i].buffer, offsets);
 		vkCmdDraw(m_vulkanCommandBuffer, lines[i].numVertices, 1, 0, 0);
 	}
@@ -1665,14 +1593,14 @@ void VulkanInstance::PerThreadCode(int threadId, float dt)
     viewport.maxDepth = (float)1.0f;
     viewport.x = 0;
     viewport.y = 0;
-    vkCmdSetViewport(m_commandBuffers[threadId], 0, NUM_VIEWPORTS, &viewport);
+    vkCmdSetViewport(m_commandBuffers[threadId], 0, 1, &viewport);
 
     VkRect2D scissor;
     scissor.extent.width = m_windowWidth;
     scissor.extent.height = m_windowHeight;
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    vkCmdSetScissor(m_commandBuffers[threadId], 0, NUM_SCISSORS, &scissor);
+    vkCmdSetScissor(m_commandBuffers[threadId], 0, 1, &scissor);
 
     vkCmdDraw(m_commandBuffers[threadId], 12 * 3, 1, 0, 0);
 
@@ -1908,26 +1836,8 @@ void VulkanInstance::InitMultithreaded()
         allocInfo.memoryTypeIndex = 0;
         allocInfo.allocationSize = memoryRequirements.size;
 
-        bool pass = false;
-
         // Search memory types to find first index with those properties
-        // TODO: Make this a function
-        uint32_t typeBits = memoryRequirements.memoryTypeBits;
-        for (uint32_t i = 0; i < 32; i++)
-        {
-            if ((typeBits & 1) == 1)
-            {
-                // Type is available, does it match user properties?
-                if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
-                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-                    allocInfo.memoryTypeIndex = i;
-                    pass = true;
-                    break;
-                }
-            }
-            typeBits >>= 1;
-        }
-        assert(pass);
+		assert(GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
 
         // Allocate vertex buffer memory per thread
         result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &m_vertexBuffers[thread].memory);
@@ -1955,9 +1865,8 @@ void VulkanInstance::InitMultithreaded()
 
 void VulkanInstance::AddModel(Model &model)
 {
-	std::vector<float> modifiedVertices;	
-	unsigned int currentIndex = 0;
-	for (int i = 0; i < model.fileVertices.size(); i+=3)
+	std::vector<float> modifiedVertices;
+	for (unsigned int i = 0; i < model.fileVertices.size(); i+=3)
 	{
 		modifiedVertices.push_back(model.fileVertices[i]);
 		modifiedVertices.push_back(model.fileVertices[i + 1]);
@@ -1995,26 +1904,8 @@ void VulkanInstance::AddModel(Model &model)
 	allocInfo.memoryTypeIndex = 0;
 	allocInfo.allocationSize = memoryRequirements.size;
 
-	bool pass = false;
-
 	// Search memory types to find first index with those properties
-	// TODO: Make this a function
-	uint32_t typeBits = memoryRequirements.memoryTypeBits;
-	for (uint32_t i = 0; i < 32; i++)
-	{
-		if ((typeBits & 1) == 1)
-		{
-			// Type is available, does it match user properties?
-			if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-				allocInfo.memoryTypeIndex = i;
-				pass = true;
-				break;
-			}
-		}
-		typeBits >>= 1;
-	}
-	assert(pass);
+	assert(GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
 
 	// Allocate vertex buffer memory per thread
 	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.memory);
@@ -2054,26 +1945,8 @@ void VulkanInstance::AddModel(Model &model)
 	allocInfo.memoryTypeIndex = 0;
 	allocInfo.allocationSize = memoryRequirements.size;
 
-	pass = false;
-
 	// Search memory types to find first index with those properties
-	// TODO: Make this a function
-	typeBits = memoryRequirements.memoryTypeBits;
-	for (uint32_t i = 0; i < 32; i++)
-	{
-		if ((typeBits & 1) == 1)
-		{
-			// Type is available, does it match user properties?
-			if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-				allocInfo.memoryTypeIndex = i;
-				pass = true;
-				break;
-			}
-		}
-		typeBits >>= 1;
-	}
-	assert(pass);
+	assert(GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
 
 	// Allocate vertex buffer memory per thread
 	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.indexMemory);
@@ -2082,7 +1955,6 @@ void VulkanInstance::AddModel(Model &model)
 	buffer.indexInfo.offset = 0;
 
 	// Map memory and copy over vertex data
-	
 	uint8_t *indexData;
 	result = vkMapMemory(m_vulkanDevice, buffer.indexMemory, 0, memoryRequirements.size, 0, (void **)&indexData);
 	assert(result == VK_SUCCESS);
@@ -2097,78 +1969,8 @@ void VulkanInstance::AddModel(Model &model)
 	buffer.numIndices = model.fileIndices.size();
 	buffer.numVertices = model.fileVertices.size();
 
+	// Add to models list for rendering
 	models.push_back(buffer);
-}
-
-// For now, just draw on thread 0
-void VulkanInstance::DrawModels(int threadId, float dt)
-{
-	VkWriteDescriptorSet writes[2];
-
-	writes[0] = {};
-	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[0].pNext = NULL;
-	writes[0].dstSet = m_descriptorSets[threadId][0];
-	writes[0].descriptorCount = 1;
-	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	writes[0].pBufferInfo = &m_uniformBuffers[threadId].bufferInfo;
-	writes[0].dstArrayElement = 0;
-	writes[0].dstBinding = 0;
-
-	writes[1] = {};
-	writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[1].dstSet = m_descriptorSets[threadId][0];
-	writes[1].descriptorCount = 1;
-	writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	writes[1].pImageInfo = &m_vulkanImageInfo;
-	writes[1].dstArrayElement = 0;
-	writes[1].dstBinding = 1;
-
-	vkUpdateDescriptorSets(m_vulkanDevice, 2, writes, 0, NULL);
-
-	VkCommandBufferInheritanceInfo inherit = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
-	inherit.framebuffer = m_vulkanFrameBuffers[m_currentBuffer];
-	inherit.renderPass = m_vulkanRenderPass;
-
-	VkCommandBufferBeginInfo cmdBufBeginInfo = {};
-	cmdBufBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmdBufBeginInfo.pNext = NULL;
-	cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT |
-		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT |
-		VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;;
-	cmdBufBeginInfo.pInheritanceInfo = &inherit;
-
-	VkResult result = vkBeginCommandBuffer(m_commandBuffers[threadId], &cmdBufBeginInfo);
-	assert(result == VK_SUCCESS);
-
-	vkCmdBindPipeline(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[0]);
-	vkCmdBindDescriptorSets(m_commandBuffers[threadId], VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipelineLayout, 0, NUM_DESCRIPTOR_SETS, m_descriptorSets[threadId].data(), 0, NULL);
-
-	const VkDeviceSize offsets[1] = { 0 };
-	vkCmdBindVertexBuffers(m_commandBuffers[threadId], 0, 1, &models[0].buffer, offsets);
-	vkCmdBindIndexBuffer(m_commandBuffers[threadId], models[0].indices, 0, VkIndexType::VK_INDEX_TYPE_UINT32);	
-
-	VkViewport viewport;
-	viewport.height = (float)m_windowHeight;
-	viewport.width = (float)m_windowWidth;
-	viewport.minDepth = (float)0.0f;
-	viewport.maxDepth = (float)1.0f;
-	viewport.x = 0;
-	viewport.y = 0;
-	vkCmdSetViewport(m_commandBuffers[threadId], 0, NUM_VIEWPORTS, &viewport);
-
-	VkRect2D scissor;
-	scissor.extent.width = m_windowWidth;
-	scissor.extent.height = m_windowHeight;
-	scissor.offset.x = 0;
-	scissor.offset.y = 0;
-	vkCmdSetScissor(m_commandBuffers[threadId], 0, NUM_SCISSORS, &scissor);	
-
-	vkCmdDrawIndexed(m_commandBuffers[threadId], models[0].numIndices, 1, 0, 0, 0);
-	//vkCmdDraw(m_commandBuffers[threadId], numVertices * 3, 1, 0, 0);
-
-	result = vkEndCommandBuffer(m_commandBuffers[threadId]);
-	assert(result == VK_SUCCESS);
 }
 
 void VulkanInstance::AddLineBuffer(const std::vector<Vec4> &points)
@@ -2200,26 +2002,8 @@ void VulkanInstance::AddLineBuffer(const std::vector<Vec4> &points)
 	allocInfo.memoryTypeIndex = 0;
 	allocInfo.allocationSize = memoryRequirements.size;
 
-	bool pass = false;
-
 	// Search memory types to find first index with those properties
-	// TODO: Make this a function
-	uint32_t typeBits = memoryRequirements.memoryTypeBits;
-	for (uint32_t i = 0; i < 32; i++)
-	{
-		if ((typeBits & 1) == 1)
-		{
-			// Type is available, does it match user properties?
-			if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-				allocInfo.memoryTypeIndex = i;
-				pass = true;
-				break;
-			}
-		}
-		typeBits >>= 1;
-	}
-	assert(pass);
+	assert(GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
 
 	// Allocate vertex buffer memory per thread
 	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.memory);
@@ -2241,5 +2025,28 @@ void VulkanInstance::AddLineBuffer(const std::vector<Vec4> &points)
 
 	buffer.numVertices = points.size();
 
+	// Add to lines list for rendering
 	lines.push_back(buffer);
+}
+
+// Heavily used function to get memory type for memory alloc
+bool VulkanInstance::GetMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlagBits memoryPropretyBit, uint32_t &memoryTypeIndex)
+{
+	uint32_t typeBits = memoryTypeBits;
+	bool pass = false;
+	for (uint32_t i = 0; i < 32; i++)
+	{
+		if ((typeBits & 1) == 1)
+		{
+			// Type is available, does it match user properties?
+			if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags &
+				memoryPropretyBit) == memoryPropretyBit) {
+				memoryTypeIndex = i;
+				pass = true;
+				break;
+			}
+		}
+		typeBits >>= 1;
+	}
+	return pass;
 }

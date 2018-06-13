@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 
+// TODO: Remember to remove \n when porting to android
 void Shader::LoadFile(std::string fileName, std::string& fileContents)
 {
 	std::ifstream objFile(fileName.c_str());
@@ -15,8 +16,6 @@ void Shader::LoadFile(std::string fileName, std::string& fileContents)
 
 		fileContents.assign((std::istreambuf_iterator<char>(objFile)),
 			std::istreambuf_iterator<char>());
-		
-		// TODO! Remove all \n from string before passing back.
 	}
 }
 

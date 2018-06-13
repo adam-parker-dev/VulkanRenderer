@@ -1,7 +1,6 @@
-#ifndef _VEC_3_H_
-#define _VEC_3_H_
+#pragma once
 
-class Vec3
+struct Vec3
 {
 public:
     float x;
@@ -37,9 +36,4 @@ public:
             return z;
         }
     }
-
-    //Vec3 operator+(Vec3 right) { return Vec3(this->x + right.x, this->y + right.y, this->z + right.z); }
-    //Vec3 operator*(Vec3 right) { return }
 };
-
-#endif

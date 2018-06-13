@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Mat4.h"
 #include "Vec4.h"
 #include "Vec3.h"
@@ -6,6 +7,7 @@
 
 class Camera
 {
+	// Camera view and projection
 	Mat4 view;
 	Mat4 projection;
 

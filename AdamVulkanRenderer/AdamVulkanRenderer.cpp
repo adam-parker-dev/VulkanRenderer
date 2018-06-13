@@ -1,6 +1,6 @@
 // AdamVulkanRenderer.cpp : Defines the entry point for the application.
 #include "stdafx.h"
-#include "AdamVulkanRenderer.h"
+#include "resource.h"
 #include "VulkanInstance.h"
 #include "OBJFile.h"
 
@@ -10,7 +10,7 @@
 HINSTANCE hInst;								// current instance
 TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
-clock_t frameTime;
+clock_t frameTime = 0;
 
 // Forward declarations of functions included in this code module:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -38,6 +38,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
         return FALSE;
     }
     
+	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_ADAMVULKANRENDERER));
+
     // BEGIN: Get dimensions to pass on to Vulkan
     RECT dimensions;
     GetClientRect(hWnd, &dimensions);
@@ -45,43 +47,31 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 
     // Are we building for multi-threaded draw?
     bool multithreaded = false;
+	bool importOBJS = false;
 
-    // BEGIN: Vulkan initialization
+    // Vulkan initialization
     VulkanInstance renderer;
     renderer.Initialize(hWnd, hInst, dimensions.right, dimensions.bottom, multithreaded);
-    // END: Vulkan initialization
 
-    hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_ADAMVULKANRENDERER));
-
-	std::vector<Vec4> lines = { Vec4(-10, 0, 0, 1), Vec4(10, 0, 0, 1), Vec4(0, 0, 10, 1), Vec4(0, 0, -10, 1), Vec4(0, 10, 0, 1), Vec4(0, -10, 0, 1) };
-
-	if (!multithreaded)
+	// Import .obj models
+	if (importOBJS)
 	{
-		// Enable for unreal imports
-		// TAG UNREAL
 		std::vector<Model> models;
-		//OBJFile::LoadFile("murdock.obj", models);
-		for (int i = 0; i < models.size(); ++i)
+		OBJFile::LoadFile("murdock.obj", models);
+		for (unsigned int i = 0; i < models.size(); ++i)
 		{
-			//renderer.AddModel(models[i]);
+			renderer.AddModel(models[i]);
 		}
-
-		renderer.AddLineBuffer(lines);
 	}
-
-	// BEGIN: Init frame time
-	frameTime = 0;
-	// END: Init frame time
 
     // Main message loop
     while (1)
     {
-		// BEGIN: Calc frame time
+		// Calc frame time
 		clock_t oldTime = frameTime;
 		frameTime = clock();
 		clock_t deltaTime = frameTime - oldTime;
 		float dt = ((float)deltaTime) / CLOCKS_PER_SEC;
-		// END: Calc frame time
 
         // Process Windows messages
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -93,14 +83,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
             }
         }
 
-        //BEGIN: Draw Vulkan stuff
+        // Draw Vulkan stuff
         multithreaded ? renderer.DrawCubesMultithreaded(dt) : renderer.DrawCube(dt);
-        // END: Draw Vulkan stuff
     }
 
-    // BEGIN: Vulkan Cleanup
+    // Vulkan cleanup
     renderer.Destroy();
-    // END: Vulkan Cleanup
 
     return (int)msg.wParam;
 }
