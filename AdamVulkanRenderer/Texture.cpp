@@ -489,9 +489,9 @@ void Texture::InitTexture(const VkDevice &device, const VkPhysicalDevice &physic
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = 1;
 	imageCreateInfo.samples = NUM_SAMPLES;
-	imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-	imageCreateInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT;
+	imageCreateInfo.usage = needStaging ? (VK_IMAGE_USAGE_TRANSFER_SRC_BIT) : (VK_IMAGE_USAGE_SAMPLED_BIT);
 	imageCreateInfo.queueFamilyIndexCount = 0;
 	imageCreateInfo.pQueueFamilyIndices = NULL;
 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -522,7 +522,14 @@ void Texture::InitTexture(const VkDevice &device, const VkPhysicalDevice &physic
 
 	mem_alloc.allocationSize = mem_reqs.size;
 
-	assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
+	if (type == VkImageType::VK_IMAGE_TYPE_3D)
+	{
+		assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), mem_alloc.memoryTypeIndex));
+	}
+	else
+	{
+		assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
+	}
 
 	result = vkAllocateMemory(device, &mem_alloc, NULL, &(mappableMemory));
 	assert(result == VK_SUCCESS);
@@ -597,4 +604,81 @@ void Texture::InitTexture(const VkDevice &device, const VkPhysicalDevice &physic
 	assert(result == VK_SUCCESS);
 
 	vkDestroyFence(device, cmdFence, NULL);
+
+	this->image = mappableImage;
+	this->memory = mappableMemory;
+	this->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	// BEGIN CREATE IMAGE VIEW
+	VkImageViewCreateInfo viewInfo = {};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.pNext = NULL;
+	viewInfo.image = VK_NULL_HANDLE;
+	if (type == VK_IMAGE_TYPE_3D)
+	{
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+	}
+	else
+	{
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	}
+	viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+	viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+	viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+	viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel = 0;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.layerCount = 1;
+
+	viewInfo.image = this->image;
+	result = vkCreateImageView(device, &viewInfo, NULL, &this->view);
+	assert(result == VK_SUCCESS);
+	// END CREATE IMAGE VIEW
+
+	// BEGIN CREATE SAMPLER
+	VkSamplerCreateInfo samplerCreateInfo = {};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
+	samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.mipLodBias = 0.0;
+	samplerCreateInfo.anisotropyEnable = VK_FALSE,
+		samplerCreateInfo.maxAnisotropy = 1;
+	samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+	samplerCreateInfo.minLod = 0.0;
+	samplerCreateInfo.maxLod = 0.0;
+	samplerCreateInfo.compareEnable = VK_FALSE;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+
+	/* create sampler */
+	result = vkCreateSampler(device, &samplerCreateInfo, NULL, &this->sampler);
+	assert(result == VK_SUCCESS);
+	// ENd create sampler	
+}
+
+void Texture::CopyBufferToImage(const VkDevice &device, const VkPhysicalDevice &physical, const VkCommandBuffer &cmdBuf)
+{
+	uint32_t *data = new uint32_t[5 * 5 * 5]; // change to input width, heigh, depth
+
+	
+	VkBuffer srcBuffer;
+	VkImage dstImage;
+	VkImageLayout dstImageLayout;
+
+	VkBufferImageCopy copyRegion;
+	//copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	//copyRegion.imageSubresource.mipLevel = 0;
+	//copyRegion.imageSubresource.baseArrayLayer = 0;
+	//copyRegion.imageSubresource.layerCount = 1;
+	//copyRegion.imageExtent.width = texture.width;
+	//copyRegion.imageExtent.height = texture.height;
+	//copyRegion.imageExtent.depth = texture.depth;
+
+//	vkCmdCopyBufferToImage(cmdBuf, srcBuffer, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 }

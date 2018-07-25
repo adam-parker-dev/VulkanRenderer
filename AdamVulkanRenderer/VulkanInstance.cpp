@@ -14,7 +14,7 @@
 VkPhysicalDeviceMemoryProperties VulkanCommon::m_vulkanDeviceMemoryProperties;
 
 // Call all the initialize functions needed to make the Vulkan render pipeline work
-void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded)
+void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded, bool clusteredRendering)
 {
     assert(width);
     assert(height);
@@ -78,21 +78,28 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
         InitVertexBuffer();
     }
 
-	// Debug clustered frustum
-	std::vector<Vec4> clusteredFrustum;
-	camera[0].SubdivideFrustum(clusteredFrustum, 5, 20, 5, 5);
-	std::vector<Vec4> lineList;
-	camera[0].ConstructDebugLineList(clusteredFrustum, lineList, 5, 5, 5);
-	AddLineBuffer(lineList);
-
 	// Create texture for cube
-	texture.InitTextureFromFile(m_vulkanDevice, m_vulkanDeviceVector[0], m_vulkanCommandBuffer, m_vulkanQueue, "adam.ppm");
-	m_vulkanImageInfo.imageView = texture.view;
-	m_vulkanImageInfo.sampler = texture.sampler;
+	albedoTexture.InitTextureFromFile(m_vulkanDevice, m_vulkanDeviceVector[0], m_vulkanCommandBuffer, m_vulkanQueue, "adam.ppm");
+	m_vulkanImageInfo.imageView = albedoTexture.view;
+	m_vulkanImageInfo.sampler = albedoTexture.sampler;
 	m_vulkanImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-	// Create 3D texture for clustered light list
-//	texture.InitTexture(m_vulkanDevice, m_vulkanDeviceVector[0], m_vulkanCommandBuffer, m_vulkanQueue, VK_IMAGE_TYPE_3D, VK_FORMAT_R8G8B8A8_UNORM, true, 5, 5, 10);
+	if (clusteredRendering)
+	{
+		// Debug clustered frustum
+		uint32_t xSlices, ySlices, zSlices;
+		xSlices = ySlices = zSlices = 5;
+		std::vector<Vec4> clusteredFrustum;
+		camera[0].SubdivideFrustum(clusteredFrustum, zSlices, 20, xSlices, ySlices);
+		std::vector<Vec4> lineList;
+		camera[0].ConstructDebugLineList(clusteredFrustum, lineList, 5, 5, 5);
+		AddLineBuffer(lineList);
+
+		// Create 3D texture for clustered light list
+		frustum3dTexutre.InitTexture(m_vulkanDevice, m_vulkanDeviceVector[0], m_vulkanCommandBuffer, m_vulkanQueue, VK_IMAGE_TYPE_3D, VK_FORMAT_R32G32_UINT, true, xSlices, ySlices, zSlices);
+		m_vulkanImageInfo.imageView = frustum3dTexutre.view;
+		m_vulkanImageInfo.sampler = frustum3dTexutre.sampler;
+	}
 }
 
 // Initialize a Vulkan instance

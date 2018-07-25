@@ -43,7 +43,7 @@ class VulkanInstance
 {
 public:
     // Initialize Vulkan
-    void Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded);
+    void Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded, bool clusteredRendering);
 
     // Draw a cube single-threaded
     void DrawCube(float dt);                                            // Vulkan tutorial step 15
@@ -91,8 +91,9 @@ private:
 	bool GetMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlagBits memoryPropretyBit, uint32_t &memoryTypeIndex);
 
 	// Texture and camera data
-	Texture texture;
+	Texture albedoTexture;
 	Camera camera[2];
+	Texture frustum3dTexutre;
 
     // Persistent members required for rendering
     VkInstance m_vulkanInstance;

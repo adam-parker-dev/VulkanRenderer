@@ -11,6 +11,7 @@ class Texture
 public:
 	void InitTextureFromFile(const VkDevice &device, const VkPhysicalDevice &physical, const VkCommandBuffer &cmdBuf, const VkQueue &queue,	const std::string &filename);
 	void InitTexture(const VkDevice &device, const VkPhysicalDevice &physical, const VkCommandBuffer &cmdBuf, const VkQueue &queue, VkImageType type, VkFormat format, bool writeable, int width, int height, int depth);
+	void CopyBufferToImage(const VkDevice &device, const VkPhysicalDevice &physical, const VkCommandBuffer &cmdBuf);
 
 	VkImageView view;
 	VkSampler sampler;
