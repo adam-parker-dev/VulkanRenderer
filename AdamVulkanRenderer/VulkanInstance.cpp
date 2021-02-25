@@ -84,8 +84,11 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 	m_vulkanImageInfo.sampler = albedoTexture.sampler;
 	m_vulkanImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
+	m_currentCamera = 0;
+
 	if (clusteredRendering)
 	{
+		m_currentCamera = 1;
 		// Debug clustered frustum
 		uint32_t xSlices, ySlices, zSlices;
 		xSlices = ySlices = zSlices = 5;
@@ -1110,7 +1113,7 @@ void VulkanInstance::InitPipeline()
     VkResult result = vkCreatePipelineCache(m_vulkanDevice, &pipelineCacheInfo, NULL, &m_vulkanPipelineCache);
     assert(result == VK_SUCCESS);
 
-    VkDynamicState dynamicStateEnables[2];
+    VkDynamicState dynamicStateEnables[2]; // viewport and scissor?
     VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
     memset(dynamicStateEnables, 0, sizeof dynamicStateEnables);
     dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -1421,7 +1424,14 @@ void VulkanInstance::DrawCube(float dt)
 	// Draw lines
 	vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[1]);
 
-	UpdateUniformBufferForDebugCamera(0, dt);
+	if (m_currentCamera > 0)
+	{
+		UpdateUniformBufferForDebugCamera(0, dt);
+	}
+	else
+	{
+		UpdateUniformBuffer(0, dt);
+	}
 
 	for (unsigned int i = 0; i < lines.size(); ++i)
 	{

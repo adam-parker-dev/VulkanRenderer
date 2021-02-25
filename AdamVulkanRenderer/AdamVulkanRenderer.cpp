@@ -46,7 +46,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     // END: Get dimensions to pass on to Vulkan
 
     // Are we building for multi-threaded draw?
-    bool multithreaded = true;
+    bool multithreaded = false;
 	bool importOBJS = false;
 	bool clusteredRendering = false;
 

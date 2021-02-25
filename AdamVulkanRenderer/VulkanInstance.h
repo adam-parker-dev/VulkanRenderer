@@ -129,6 +129,9 @@ private:
     int m_windowWidth;
     int m_windowHeight;
 
+	// Current camera
+	int m_currentCamera;
+
     // Structure for swap chain buffer
     struct VulkanSwapChainBuffer
     {
