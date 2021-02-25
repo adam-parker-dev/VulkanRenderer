@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "Texture.h"
 #include <iostream>
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 #include <assert.h>
 #include "VulkanCommon.h"
 
@@ -159,7 +159,8 @@ void Texture::InitTextureFromFile(const VkDevice &device,
 
 	mem_alloc.allocationSize = mem_reqs.size;
 
-	assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
+	bool pass = VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex);
+	assert(pass);
 
 	result = vkAllocateMemory(device, &mem_alloc, NULL, &(mappableMemory));
 	assert(result == VK_SUCCESS);
@@ -304,7 +305,8 @@ void Texture::InitTextureFromFile(const VkDevice &device,
 
 		mem_alloc.allocationSize = mem_reqs.size;
 
-		assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
+		bool pass = VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex);
+		assert(pass);
 
 		result = vkAllocateMemory(device, &mem_alloc, NULL, &this->memory);
 		assert(result == VK_SUCCESS);
@@ -522,13 +524,16 @@ void Texture::InitTexture(const VkDevice &device, const VkPhysicalDevice &physic
 
 	mem_alloc.allocationSize = mem_reqs.size;
 
+	bool pass = false;
 	if (type == VkImageType::VK_IMAGE_TYPE_3D)
 	{
-		assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), mem_alloc.memoryTypeIndex));
+		pass = VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), mem_alloc.memoryTypeIndex);
+		assert(pass);
 	}
 	else
 	{
-		assert(VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex));
+		pass = VulkanCommon::GetMemoryType(mem_reqs.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), mem_alloc.memoryTypeIndex);
+		assert(pass);
 	}
 
 	result = vkAllocateMemory(device, &mem_alloc, NULL, &(mappableMemory));

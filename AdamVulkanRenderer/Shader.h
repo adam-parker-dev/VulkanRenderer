@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
-#include "SPIRV/GlslangToSpv.h"
+#include "glslang/SPIRV/GlslangToSpv.h"
 
 class Shader
 {

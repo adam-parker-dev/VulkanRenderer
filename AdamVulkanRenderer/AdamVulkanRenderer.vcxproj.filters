@@ -145,9 +145,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Object Include="box.obj">
-      <Filter>Resource Files</Filter>
-    </Object>
     <Object Include="sword.obj">
       <Filter>Resource Files</Filter>
     </Object>
@@ -158,6 +155,9 @@
       <Filter>Resource Files</Filter>
     </Object>
     <Object Include="murdock.obj">
+      <Filter>Resource Files</Filter>
+    </Object>
+    <Object Include="box.obj">
       <Filter>Resource Files</Filter>
     </Object>
   </ItemGroup>

@@ -646,7 +646,8 @@ void VulkanInstance::CreateDepthBuffer()
     memAlloc.allocationSize = memoryRequirements.size;
 
 	// Search memory types to find first index with those properties
-	assert(VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(0), memAlloc.memoryTypeIndex));
+	bool pass = VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(0), memAlloc.memoryTypeIndex);
+	assert(pass);
 
     //Allocate memory
     result = vkAllocateMemory(m_vulkanDevice, &memAlloc, NULL, &m_depthBuffer.memory);
@@ -711,7 +712,8 @@ void VulkanInstance::CreateUniformBuffer(int threadNum)
     allocInfo.allocationSize = memoryRequirements.size;
 
 	// Search memory types to find first index with those properties
-	assert(VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
+	bool pass = VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT), allocInfo.memoryTypeIndex);
+	assert(pass);
 
     result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &m_uniformBuffers[threadNum].memory);
     assert(result == VK_SUCCESS);
@@ -1054,9 +1056,10 @@ void VulkanInstance::InitVertexBuffer()
     allocInfo.pNext = NULL;
     allocInfo.memoryTypeIndex = 0;
     allocInfo.allocationSize = memoryRequirements.size;
-
+	
 	// Search memory types to find first index with those properties
-	assert(VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
+	bool test = VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT), allocInfo.memoryTypeIndex);
+	assert(test);
 
     result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &m_vertexBuffers[0].memory);
     assert(result == VK_SUCCESS);
@@ -1107,7 +1110,7 @@ void VulkanInstance::InitPipeline()
     VkResult result = vkCreatePipelineCache(m_vulkanDevice, &pipelineCacheInfo, NULL, &m_vulkanPipelineCache);
     assert(result == VK_SUCCESS);
 
-    VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
+    VkDynamicState dynamicStateEnables[2];
     VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
     memset(dynamicStateEnables, 0, sizeof dynamicStateEnables);
     dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -1851,7 +1854,8 @@ void VulkanInstance::InitMultithreaded()
         allocInfo.allocationSize = memoryRequirements.size;
 
         // Search memory types to find first index with those properties
-		assert(VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
+		bool pass = VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT), allocInfo.memoryTypeIndex);
+		assert(pass);
 
         // Allocate vertex buffer memory per thread
         result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &m_vertexBuffers[thread].memory);
@@ -1919,7 +1923,8 @@ void VulkanInstance::AddModel(Model &model)
 	allocInfo.allocationSize = memoryRequirements.size;
 
 	// Search memory types to find first index with those properties
-	assert(VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
+	bool pass = VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT), allocInfo.memoryTypeIndex);
+	assert(pass);
 
 	// Allocate vertex buffer memory per thread
 	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.memory);
@@ -1960,7 +1965,8 @@ void VulkanInstance::AddModel(Model &model)
 	allocInfo.allocationSize = memoryRequirements.size;
 
 	// Search memory types to find first index with those properties
-	assert(VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
+	pass = VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT), allocInfo.memoryTypeIndex);
+	assert(pass);
 
 	// Allocate vertex buffer memory per thread
 	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.indexMemory);
@@ -2020,7 +2026,8 @@ void VulkanInstance::AddLineBuffer(const std::vector<Vec4> &points)
 	allocInfo.allocationSize = memoryRequirements.size;
 
 	// Search memory types to find first index with those properties
-	assert(VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocInfo.memoryTypeIndex));
+	bool pass = VulkanCommon::GetMemoryType(memoryRequirements.memoryTypeBits, VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT), allocInfo.memoryTypeIndex);
+	assert(pass);
 
 	// Allocate vertex buffer memory per thread
 	result = vkAllocateMemory(m_vulkanDevice, &allocInfo, NULL, &buffer.memory);

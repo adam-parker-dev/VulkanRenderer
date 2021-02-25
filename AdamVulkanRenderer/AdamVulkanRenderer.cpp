@@ -46,9 +46,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     // END: Get dimensions to pass on to Vulkan
 
     // Are we building for multi-threaded draw?
-    bool multithreaded = false;
+    bool multithreaded = true;
 	bool importOBJS = false;
-	bool clusteredRendering = true;
+	bool clusteredRendering = false;
 
     // Vulkan initialization
     VulkanInstance renderer;
@@ -101,7 +101,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 //
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
-    WNDCLASSEX wcex;
+	WNDCLASSEXW wcex;
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
@@ -111,13 +111,13 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.cbWndExtra = 0;
     wcex.hInstance = hInstance;
     wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ADAMVULKANRENDERER));
-    wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszMenuName = MAKEINTRESOURCE(IDC_ADAMVULKANRENDERER);
     wcex.lpszClassName = szWindowClass;
     wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
-    return RegisterClassEx(&wcex);
+    return RegisterClassExW(&wcex);
 }
 
 //
@@ -136,8 +136,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow, HWND &window)
 
     hInst = hInstance; // Store instance handle in our global variable
 
-    hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
+    hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd)
     {

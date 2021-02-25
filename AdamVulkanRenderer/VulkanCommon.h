@@ -2,7 +2,7 @@
 #ifndef VULKAN_COMMON
 #define VULKAN_COMMON
 
-#include "vulkan.h"
+#include "vulkan/vulkan.h"
 #include <cassert>
 
 class VulkanCommon
@@ -14,7 +14,6 @@ public:
 	static bool GetMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlagBits requirementsMask, uint32_t &memoryTypeIndex)
 	{
 		uint32_t typeBits = memoryTypeBits;
-		bool pass = false;
 		for (uint32_t i = 0; i < m_vulkanDeviceMemoryProperties.memoryTypeCount; i++)
 		{
 			if ((typeBits & 1) == 1)
@@ -23,13 +22,12 @@ public:
 				if ((m_vulkanDeviceMemoryProperties.memoryTypes[i].propertyFlags & requirementsMask) == requirementsMask) 
 				{
 					memoryTypeIndex = i;
-					pass = true;
-					break;
+					return true;
 				}
 			}
 			typeBits >>= 1;
 		}
-		return pass;
+		return false;
 	}
 };
 

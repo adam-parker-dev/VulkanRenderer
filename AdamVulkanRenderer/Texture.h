@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vulkan.h"
+#include "vulkan/vulkan.h"
 #include <string>
 
 #define NUM_SAMPLES VK_SAMPLE_COUNT_1_BIT

@@ -18,8 +18,8 @@
 
 #include "glm/glm.hpp"
 #include <glm/gtc/matrix_transform.hpp>
-#include "vulkan.h"
-#include "SPIRV/GlslangToSpv.h"
+#include "vulkan/vulkan.h"
+#include "glslang/SPIRV/GlslangToSpv.h"
 #include <vector>
 #include <mutex>
 #include "Model.h"
@@ -86,9 +86,6 @@ private:
 
     // Init buffers for multithreaded
     void InitMultithreaded();
-
-	// Get memory types for Vulkan
-	bool GetMemoryType(uint32_t memoryTypeBits, VkMemoryPropertyFlagBits memoryPropretyBit, uint32_t &memoryTypeIndex);
 
 	// Texture and camera data
 	Texture albedoTexture;
