@@ -14,7 +14,7 @@
 VkPhysicalDeviceMemoryProperties VulkanCommon::m_vulkanDeviceMemoryProperties;
 
 // Call all the initialize functions needed to make the Vulkan render pipeline work
-void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded, bool clusteredRendering)
+void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded, bool clusteredRendering, bool importObjs)
 {
     assert(width);
     assert(height);
@@ -45,6 +45,15 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 	camera[1].center = Vec3(0, 0, -50);
 	camera[1].eye = Vec3(100, 50, 50);
 	camera[1].up = Vec3(0, 1, 0);
+
+	camera[2] = Camera();
+	camera[2].fov = glm::radians(45.0f);
+	camera[2].aspect = static_cast<float>(width) / static_cast<float>(height);
+	camera[2].nearPlane = 0.1f;
+	camera[2].farPlane = 10000.0f;
+	camera[2].center = Vec3(0, 0, 0);
+	camera[2].eye = Vec3(0, 500, 1000);
+	camera[2].up = Vec3(0, 1, 0);
 
 	// Vulkan setup
     InitInstance();
@@ -85,6 +94,10 @@ void VulkanInstance::Initialize(HWND hwnd, HINSTANCE inst, int width, int height
 	m_vulkanImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
 	m_currentCamera = 0;
+	if (importObjs)
+	{
+		m_currentCamera = 2;
+	}
 
 	if (clusteredRendering)
 	{
@@ -775,15 +788,15 @@ void VulkanInstance::UpdateUniformBufferForDebugCamera(int threadNum, float dt)
 	vkUnmapMemory(m_vulkanDevice, m_uniformBuffers[threadNum].memory);
 }
 
-void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
+void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt, int cameraId)
 {
     glm::mat4 Projection, View, Clip, MVP;
 
-    Projection = glm::perspective(camera[0].fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), camera[0].nearPlane, camera[0].farPlane);
+    Projection = glm::perspective(camera[cameraId].fov, static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight), camera[cameraId].nearPlane, camera[cameraId].farPlane);
 
-	View = glm::lookAt(glm::vec3(camera[0].eye.x, camera[0].eye.y, camera[0].eye.z),
-	    glm::vec3(camera[0].center.x, camera[0].center.y, camera[0].center.z),
-	    glm::vec3(camera[0].up.x, camera[0].up.y, camera[0].up.z));
+	View = glm::lookAt(glm::vec3(camera[cameraId].eye.x, camera[cameraId].eye.y, camera[cameraId].eye.z),
+	    glm::vec3(camera[cameraId].center.x, camera[cameraId].center.y, camera[cameraId].center.z),
+	    glm::vec3(camera[cameraId].up.x, camera[cameraId].up.y, camera[cameraId].up.z));
    	
     m_modelMatrices[threadNum] = glm::rotate(m_modelMatrices[threadNum], 1.0f * dt, glm::vec3(0, 1, 0));
     m_modelMatrices[threadNum][3][0] = (float)(threadNum * 3);
@@ -795,7 +808,7 @@ void VulkanInstance::UpdateUniformBuffer(int threadNum, float dt)
         0.0f, 0.0f, 0.5f, 0.0f, 
         0.0f, 0.0f, 0.5f, 1.0f);
 
-    MVP = Clip * Projection * View * m_modelMatrices[threadNum];
+	MVP = Clip * Projection * View * m_modelMatrices[threadNum];
 
     // Search memory types to find first index with those properties
     VkMemoryRequirements memoryRequirements;
@@ -1301,7 +1314,10 @@ void VulkanInstance::InitPipeline()
 void VulkanInstance::DrawCube(float dt)
 {
     // Update matrix position for cube	
-    UpdateUniformBuffer(0, dt);
+	if (m_currentCamera == 2)
+		dt = 0;
+
+    UpdateUniformBuffer(0, dt, m_currentCamera);
 
     VkWriteDescriptorSet writes[2];
 
@@ -1424,13 +1440,17 @@ void VulkanInstance::DrawCube(float dt)
 	// Draw lines
 	vkCmdBindPipeline(m_vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vulkanPipeline[1]);
 
-	if (m_currentCamera > 0)
+	if (m_currentCamera == 1)
 	{
 		UpdateUniformBufferForDebugCamera(0, dt);
 	}
+	else if(m_currentCamera == 2)
+	{
+		UpdateUniformBuffer(0, 0, m_currentCamera);
+	}
 	else
 	{
-		UpdateUniformBuffer(0, dt);
+		UpdateUniformBuffer(0, dt, m_currentCamera);
 	}
 
 	for (unsigned int i = 0; i < lines.size(); ++i)
@@ -1567,7 +1587,7 @@ void VulkanInstance::Destroy()
 
 void VulkanInstance::PerThreadCode(int threadId, float dt)
 {
-    UpdateUniformBuffer(threadId, dt);
+    UpdateUniformBuffer(threadId, dt, m_currentCamera);
 
     VkWriteDescriptorSet writes[2];
 

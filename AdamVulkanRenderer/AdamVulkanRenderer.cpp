@@ -47,12 +47,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 
     // Are we building for multi-threaded draw?
     bool multithreaded = false;
-	bool importOBJS = false;
+	bool importOBJS = true;
 	bool clusteredRendering = false;
 
     // Vulkan initialization
     VulkanInstance renderer;
-    renderer.Initialize(hWnd, hInst, dimensions.right, dimensions.bottom, multithreaded, clusteredRendering);
+    renderer.Initialize(hWnd, hInst, dimensions.right, dimensions.bottom, multithreaded, clusteredRendering, importOBJS);
 
 	// Import .obj models
 	if (importOBJS)

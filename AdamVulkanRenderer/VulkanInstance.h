@@ -43,7 +43,7 @@ class VulkanInstance
 {
 public:
     // Initialize Vulkan
-    void Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded, bool clusteredRendering);
+    void Initialize(HWND hwnd, HINSTANCE inst, int width, int height, bool multithreaded, bool clusteredRendering, bool importObjs);
 
     // Draw a cube single-threaded
     void DrawCube(float dt);                                            // Vulkan tutorial step 15
@@ -80,7 +80,7 @@ private:
     void InitPipeline();                                                // Vulkan tutorial step 14
 
     // Uniform buffer update inside draw
-    void UpdateUniformBuffer(int threadNum, float dt);
+    void UpdateUniformBuffer(int threadNum, float dt, int cameraId);
 
 	void UpdateUniformBufferForDebugCamera(int threadNum, float dt);
 
@@ -89,7 +89,7 @@ private:
 
 	// Texture and camera data
 	Texture albedoTexture;
-	Camera camera[2];
+	Camera camera[3];
 	Texture frustum3dTexutre;
 
     // Persistent members required for rendering
